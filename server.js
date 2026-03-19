@@ -7,29 +7,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 const app = express();
+app.use(express.json());
 
-// Estructura real del proyecto:
-// src/presentation/html/index.html      ← página principal
-// src/presentation/Styles/style.css     ← estilos
-// src/presentation/web-app.js           ← app JS
-// src/data/                             ← repositorios
-// src/core/                             ← use cases, entities
+// ── Archivos estáticos ────────────────────────────────────────
+// Vercel corre el server desde la raíz del proyecto
+// así que estas rutas funcionan tanto local como en producción
+app.use("/Styles",  express.static(path.join(__dirname, "src", "presentation", "Styles")));
+app.use("/styles",  express.static(path.join(__dirname, "src", "presentation", "Styles")));
+app.use("/src",     express.static(path.join(__dirname, "src")));
 
-// El HTML usa rutas relativas como:
-//   ../Styles/style.css  → necesita /Styles/style.css
-//   ../web-app.js        → necesita /web-app.js
-// Por eso servimos src/presentation/ como raíz estática
-
-app.use(express.static(path.join(__dirname, "src", "presentation")));
-
-// También servimos src/ para que los imports de módulos funcionen:
-//   ../data/WebPdfRepository.js  → /data/WebPdfRepository.js
-//   ../core/use-cases/...        → /core/use-cases/...
-app.use(express.static(path.join(__dirname, "src")));
+// web-app.js vive en src/presentation/ y el HTML lo pide como ../web-app.js
+// desde html/ eso se resuelve a /web-app.js
+app.use("/", express.static(path.join(__dirname, "src", "presentation")));
 
 // ── Ruta raíz → index.html ────────────────────────────────────
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "src", "presentation", "html", "index.html"));
+  const indexPath = path.join(__dirname, "src", "presentation", "html", "index.html");
+  res.sendFile(indexPath, err => {
+    if (err) {
+      console.error("Error sirviendo index.html:", err);
+      res.status(500).send(`Error: no se encontró index.html en ${indexPath}`);
+    }
+  });
 });
 
 // ── API ───────────────────────────────────────────────────────
@@ -41,5 +40,6 @@ app.get("/api/get-job-listings", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ KorWork en http://localhost:${PORT}`);
-  console.log(`🔍 API:      http://localhost:${PORT}/api/get-job-listings?title=Android+Developer&location=Mexico`);
 });
+
+export default app;
