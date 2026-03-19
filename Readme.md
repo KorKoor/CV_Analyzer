@@ -4,7 +4,7 @@ Herramienta que analiza un CV en PDF, detecta tecnologías y busca vacantes real
 
 ## Demo
 
-**[cv-analyzer-olive.vercel.app](https://cv-analyzer-olive.vercel.app)**
+**[KorWork CV Analyzer](https://cv.korwork.org/)**
 
 ## ¿Cómo funciona?
 
