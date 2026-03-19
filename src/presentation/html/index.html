@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KorWork | CV Analyzer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../Styles/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kwText:   '#2d241e',
+                        kwBg:     '#fdfdfd',
+                        kwAccent: '#00875e',
+                        kwBorder: '#e8e2de'
+                    },
+                    fontFamily: {
+                        outfit: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* ── Animación de entrada de cards ── */
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0);    }
+        }
+        .animate-up {
+            animation: slideUp 0.4s ease forwards;
+            opacity: 0;
+        }
+
+        /* ── Card base ── */
+        .skill-card {
+            background:    white;
+            padding:       2rem;
+            border-radius: 2rem;
+            border:        1px solid #e8e2de;
+            box-shadow:    0 1px 3px rgba(0,0,0,.04);
+            transition:    box-shadow .2s, border-color .2s;
+        }
+        .skill-card:hover {
+            box-shadow:    0 4px 20px rgba(0,135,94,.08);
+            border-color:  #00875e40;
+        }
+
+        /* ── Botón principal POSTULARSE ── */
+        .btn-apply {
+            display:         flex;
+            align-items:     center;
+            justify-content: center;
+            padding:         .75rem 1.5rem;
+            border-radius:   1rem;
+            font-weight:     800;
+            font-size:       .75rem;
+            letter-spacing:  .1em;
+            text-transform:  uppercase;
+            transition:      background .2s, transform .1s, box-shadow .2s;
+            text-decoration: none;
+            cursor:          pointer;
+        }
+        .btn-postularse {
+            background: #2d241e;
+            color:      white;
+        }
+        .btn-postularse:hover {
+            background:  #00875e;
+            transform:   translateY(-1px);
+            box-shadow:  0 4px 16px rgba(0,135,94,.3);
+        }
+        .btn-postularse:active {
+            transform: translateY(0);
+        }
+
+        /* Indicador visual de que el link es una vacante real */
+        .direct-link-active {
+            background:  #00875e !important;
+            box-shadow:  0 4px 16px rgba(0,135,94,.25) !important;
+        }
+        .direct-link-active:hover {
+            background:  #006b4a !important;
+        }
+
+        /* ── Preview snippet del CV ── */
+        .preview-box {
+            border-radius: 1rem;
+            background:    #f8f6f4;
+            border:        1px solid #e8e2de;
+            padding:       .75rem 1rem;
+            font-size:     .75rem;
+            color:         #6b5d52;
+            font-style:    italic;
+            line-height:   1.6;
+            display:       -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow:      hidden;
+        }
+
+        /* ── Select customizado ── */
+        #location-select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%232d241e' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat:   no-repeat;
+            background-position: right 1rem center;
+            padding-right:       2.5rem;
+        }
+
+        /* ── Scrollbar discreta en el grid ── */
+        #matches-grid {
+            scrollbar-width: thin;
+            scrollbar-color: #e8e2de transparent;
+        }
+
+        /* ── Transición suave de opacidad en metadatos dinámicos ── */
+        .vac-count, .salary-range {
+            transition: opacity .5s ease;
+        }
+    </style>
+</head>
+
+<body class="bg-kwBg text-kwText font-outfit min-h-screen selection:bg-kwAccent selection:text-white">
+
+    <div class="max-w-6xl mx-auto px-6 py-16">
+
+        <!-- ── HEADER ── -->
+        <header class="text-center mb-20">
+            <h1 class="text-5xl font-extrabold tracking-tight mb-3">
+                CV <span class="text-kwAccent">ANALYZER</span>
+            </h1>
+            <div class="h-1 w-12 bg-kwText mx-auto mb-4 opacity-20"></div>
+            <p class="text-kwText opacity-60 text-sm uppercase tracking-widest font-semibold">
+                Engineered for KorWork Ecosystem
+            </p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+
+            <!-- ── SIDEBAR ── -->
+            <aside class="lg:col-span-4 space-y-8">
+
+                <!-- Selector de ubicación -->
+                <div class="bg-white p-8 rounded-[2rem] border border-kwBorder shadow-sm">
+                    <label class="text-[11px] font-bold uppercase tracking-widest block mb-4 opacity-50">
+                        📍 Ubicación de Búsqueda
+                    </label>
+                    <select id="location-select"
+                            class="w-full bg-kwBg border border-kwBorder rounded-2xl p-4 text-kwText
+                                   font-semibold focus:border-kwAccent focus:ring-0 outline-none
+                                   transition-all cursor-pointer appearance-none">
+
+                        <optgroup label="🌐 Remoto">
+                            <option value="México">Todo México (Remoto)</option>
+                            <option value="América Latina">LATAM (Remoto)</option>
+                        </optgroup>
+
+                        <optgroup label="🏙️ Principales ciudades MX">
+                            <option value="Ciudad de México">CDMX</option>
+                            <option value="Guadalajara">Guadalajara, JAL</option>
+                            <option value="Monterrey">Monterrey, NL</option>
+                            <option value="Puebla">Puebla, PUE</option>
+                            <option value="Querétaro">Querétaro, QRO</option>
+                            <option value="Aguascalientes" selected>Aguascalientes, AGS</option>
+                            <option value="León">León, GTO</option>
+                            <option value="Tijuana">Tijuana, BC</option>
+                            <option value="Mérida">Mérida, YUC</option>
+                            <option value="San Luis Potosí">San Luis Potosí, SLP</option>
+                            <option value="Hermosillo">Hermosillo, SON</option>
+                            <option value="Saltillo">Saltillo, COAH</option>
+                            <option value="Cancún">Cancún, QROO</option>
+                            <option value="Toluca">Toluca, MEX</option>
+                            <option value="Chihuahua">Chihuahua, CHIH</option>
+                        </optgroup>
+
+                        <optgroup label="🌎 LATAM">
+                            <option value="Buenos Aires">Buenos Aires, ARG</option>
+                            <option value="Bogotá">Bogotá, COL</option>
+                            <option value="Santiago">Santiago, CHL</option>
+                            <option value="Lima">Lima, PER</option>
+                            <option value="São Paulo">São Paulo, BRA</option>
+                            <option value="Medellín">Medellín, COL</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <!-- Drop zone -->
+                <div id="drop-zone"
+                     class="bg-white group p-10 border-2 border-dashed border-kwBorder rounded-[2rem]
+                            text-center hover:border-kwAccent hover:bg-emerald-50/30 transition-all
+                            cursor-pointer flex flex-col items-center justify-center min-h-[320px]">
+
+                    <div class="w-16 h-16 bg-kwAccent/10 rounded-full flex items-center justify-center
+                                mb-6 group-hover:scale-110 transition-transform">
+                        <svg class="w-8 h-8 text-kwAccent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 4v16m8-8H4" stroke-width="2.5" stroke-linecap="round"></path>
+                        </svg>
+                    </div>
+
+                    <h2 class="text-lg font-bold mb-1">Analizar Currículum</h2>
+                    <p class="text-kwText opacity-40 text-xs mb-4">PDF · máximo 5MB</p>
+
+                    <span class="text-[10px] font-bold uppercase tracking-widest px-4 py-2
+                                 border border-kwBorder rounded-full opacity-40 group-hover:opacity-80
+                                 group-hover:border-kwAccent group-hover:text-kwAccent transition-all">
+                        Arrastra o haz clic
+                    </span>
+
+                    <input type="file" id="file-input" class="hidden" accept=".pdf">
+                </div>
+
+                <!-- Info box -->
+                <div class="bg-white p-6 rounded-[2rem] border border-kwBorder shadow-sm space-y-3">
+                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-2">¿Cómo funciona?</p>
+                    <div class="flex items-start gap-3">
+                        <span class="text-kwAccent font-black text-sm">01</span>
+                        <p class="text-xs opacity-60 leading-relaxed">Sube tu CV en PDF — se procesa localmente, nada se sube a servidores.</p>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-kwAccent font-black text-sm">02</span>
+                        <p class="text-xs opacity-60 leading-relaxed">Detectamos tus tecnologías y las mapeamos a roles reales del mercado.</p>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-kwAccent font-black text-sm">03</span>
+                        <p class="text-xs opacity-60 leading-relaxed">Buscamos vacantes activas en LinkedIn, OCC, Indeed, Computrabajo y más.</p>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- ── RESULTADOS ── -->
+            <section class="lg:col-span-8">
+
+                <!-- Panel de resultados (oculto hasta analizar) -->
+                <div id="results-panel" class="hidden space-y-8">
+
+                    <!-- Header del candidato -->
+                    <div class="bg-white p-10 rounded-[2rem] border border-kwBorder
+                                flex items-center justify-between shadow-sm">
+                        <div>
+                            <span class="text-[10px] font-bold text-kwAccent uppercase tracking-widest mb-2 block">
+                                Perfil Detectado
+                            </span>
+                            <h2 id="candidate-name" class="text-3xl font-extrabold tracking-tight"></h2>
+                        </div>
+                        <div class="text-right">
+                            <span id="skill-count" class="text-5xl font-black text-kwText">0</span>
+                            <p class="text-[10px] font-bold opacity-30 uppercase">Tecnologías</p>
+                        </div>
+                    </div>
+
+                    <!-- Grid de cards -->
+                    <div id="matches-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+                </div>
+
+                <!-- Estado vacío -->
+                <div id="empty-state"
+                     class="h-full flex flex-col items-center justify-center border-2 border-kwBorder
+                            border-dashed rounded-[2rem] bg-kwBg p-20 text-center opacity-60">
+                    <svg class="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p class="italic text-kwText text-sm">Esperando análisis de perfil profesional...</p>
+                    <p class="text-[11px] opacity-50 mt-1">Sube un CV en PDF para comenzar</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- ── FOOTER ── -->
+        <footer class="mt-24 pt-8 border-t border-kwBorder flex justify-between items-center
+                        text-kwText opacity-30 text-[10px] font-bold uppercase tracking-[0.2em]">
+            <div>KorWork.org Ecosystem</div>
+            <div>Carlos García Huerta / 2026</div>
+        </footer>
+    </div>
+
+    <!-- pdf.js (debe cargarse ANTES del módulo JS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+
+    <!-- App principal -->
+    <script type="module" src="../web-app.js"></script>
+</body>
+</html>

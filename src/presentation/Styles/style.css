@@ -1,0 +1,128 @@
+/* Paleta de Colores KorWork */
+:root {
+    --kw-bg: #fdfdfd;           /* Fondo casi blanco/crema */
+    --kw-text-main: #2d241e;    /* Café oscuro profundo (casi negro) */
+    --kw-text-dim: #6b5d52;     /* Café suave para descripciones */
+    --kw-accent: #00875e;       /* El verde esmeralda de Google Play/KorWork */
+    --kw-card-bg: #ffffff;
+    --kw-border: #e8e2de;       /* Borde sutil terroso */
+    --kw-shadow: rgba(45, 36, 30, 0.05);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Outfit', 'Inter', sans-serif; /* Tipografía redonda como la de tu sitio */
+}
+
+body {
+    background-color: var(--kw-bg);
+    color: var(--kw-text-main);
+    background-image: radial-gradient(#e8e2de 0.5px, transparent 0.5px);
+    background-size: 24px 24px; /* Sutil patrón de puntos de fondo */
+}
+
+/* --- CONTENEDORES --- */
+
+.glass-morphism {
+    background: var(--kw-card-bg);
+    border: 1px solid var(--kw-border);
+    border-radius: 24px;
+    box-shadow: 0 10px 30px var(--kw-shadow);
+}
+
+#drop-zone {
+    border: 2px dashed var(--kw-border);
+    border-radius: 20px;
+    transition: all 0.3s ease;
+}
+
+#drop-zone:hover {
+    border-color: var(--kw-accent);
+    background-color: rgba(0, 135, 94, 0.02);
+}
+
+/* --- CARDS DE SKILLS (ESTILO PRODUCTO) --- */
+
+.skill-card {
+    background: var(--kw-card-bg);
+    border: 1.5px solid var(--kw-border);
+    border-radius: 18px;
+    padding: 24px;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.skill-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--kw-text-main);
+}
+
+.preview-box {
+    background: #f8f6f4;
+    border-radius: 12px;
+    padding: 14px;
+    margin: 16px 0;
+    font-size: 0.8rem;
+    color: var(--kw-text-dim);
+    line-height: 1.5;
+    border-left: 4px solid var(--kw-border);
+}
+
+/* --- BOTONES ESTILO KORWORK (CÁPSULA) --- */
+
+.btn-apply {
+    background-color: var(--kw-text-main); /* Botón café oscuro */
+    color: #ffffff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+    transition: opacity 0.2s;
+}
+
+.btn-apply:hover {
+    opacity: 0.9;
+}
+
+.btn-softtek {
+    background-color: transparent;
+    color: var(--kw-text-main);
+    border: 1.5px solid var(--kw-border);
+    padding: 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+    margin-top: 8px;
+}
+
+.btn-softtek:hover {
+    background-color: #f8f6f4;
+}
+
+/* --- SELECTOR DE ESTADOS --- */
+
+select {
+    background-color: #ffffff !important;
+    border: 1.5px solid var(--kw-border) !important;
+    border-radius: 14px !important;
+    color: var(--kw-text-main) !important;
+    font-weight: 600 !important;
+    padding: 12px !important;
+}
+
+/* --- ANIMACIONES --- */
+@keyframes popIn {
+    0% { opacity: 0; scale: 0.95; }
+    100% { opacity: 1; scale: 1; }
+}
+
+.animate-up {
+    animation: popIn 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
+}
