@@ -10,24 +10,23 @@ const app = express();
 app.use(express.json());
 
 // ── Archivos estáticos ────────────────────────────────────────
-// Vercel corre el server desde la raíz del proyecto
-// así que estas rutas funcionan tanto local como en producción
-app.use("/Styles",  express.static(path.join(__dirname, "src", "presentation", "Styles")));
-app.use("/styles",  express.static(path.join(__dirname, "src", "presentation", "Styles")));
-app.use("/src",     express.static(path.join(__dirname, "src")));
+// El HTML vive en src/presentation/html/index.html
+// y usa rutas relativas como:
+//   ../Styles/style.css   → /Styles/style.css
+//   ../web-app.js         → /web-app.js
+//   ../../data/...        → /data/...  (NO, los imports de JS usan rutas del módulo)
 
-// web-app.js vive en src/presentation/ y el HTML lo pide como ../web-app.js
-// desde html/ eso se resuelve a /web-app.js
-app.use("/", express.static(path.join(__dirname, "src", "presentation")));
+// Servir src/presentation/ en la raíz (cubre Styles/ y web-app.js)
+app.use(express.static(path.join(__dirname, "src", "presentation")));
+
+// Servir src/ en la raíz (cubre data/, core/, entities/)
+// Esto hace que /data/WebPdfRepository.js funcione
+app.use(express.static(path.join(__dirname, "src")));
 
 // ── Ruta raíz → index.html ────────────────────────────────────
 app.get("/", (req, res) => {
-  const indexPath = path.join(__dirname, "src", "presentation", "html", "index.html");
-  res.sendFile(indexPath, err => {
-    if (err) {
-      console.error("Error sirviendo index.html:", err);
-      res.status(500).send(`Error: no se encontró index.html en ${indexPath}`);
-    }
+  res.sendFile(path.join(__dirname, "src", "presentation", "html", "index.html"), err => {
+    if (err) res.status(500).send(`Error: ${err.message}`);
   });
 });
 
