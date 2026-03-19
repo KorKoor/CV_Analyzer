@@ -1760,103 +1760,146 @@ export class WebPdfRepository extends CVRepository {
     ]);
   }
 
-  // ── CLUSTERS ──────────────────────────────────────────────────
-  // score mínimo = suma de pesos de sección necesaria para activar
-  // Ejemplo: minScore: 3.0 = necesita al menos 1 skill en experiencia
-  //          minScore: 6.0 = necesita 2 skills en experiencia O 1 en exp + muchas en otras
+ // ─────────────────────────────────────────────────────────────
+  // PESOS POR SECCIÓN
+  // ─────────────────────────────────────────────────────────────
+  get _sectionWeights() {
+    return {
+      experience: 3.0,
+      education:  2.0,
+      skills:     1.0,   // subido de 0.5 → más permisivo
+      courses:    0.5,   // subido de 0.3
+      profile:    1.5,
+      default:    1.5,   // subido de 1.0 → pdf.js a veces no segmenta bien
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SKILLS HARD BLOQUEADAS — nunca activan nada
+  // ─────────────────────────────────────────────────────────────
+  get _hardBlocked() {
+    return new Set([
+      "junior","jr","jr.","senior","sr","sr.","lead",
+      "semi senior","semi-senior","ssr","mid level","mid-level",
+      "3+ years","5+ years","8+ years","10+ years",
+      "b2","c1","c2","ielts","toefl",
+      "microsoft office","word","powerpoint","outlook","teams",
+      "slack","zoom","google drive","notion","trello",
+      "puntualidad","responsabilidad","creatividad","adaptabilidad",
+      "proactividad","empatia","organizacion",
+      "r","c","go","node","shell","bun","flow",
+      "hive","phoenix","echo","gin","lua","pilot","sage","lit",
+    ]);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SKILLS DE RIESGO — peso reducido 50%
+  // ─────────────────────────────────────────────────────────────
+  get _riskySkills() {
+    return new Set([
+      "excel","photoshop","c++","training","capacitacion",
+      "laboratorio","laboratory","investigacion","research",
+      "estadistica","statistics","flask","fiber","celery","spark",
+    ]);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // CLUSTERS — umbrales bajados para ser más permisivos
+  // Regla general:
+  //   minScore 1.5 = 1 skill en sección default/skills
+  //   minScore 2.0 = 1 skill en educación O 2 en skills
+  //   minScore 3.0 = 1 skill en experiencia O combinación
+  // ─────────────────────────────────────────────────────────────
   get _skillClusters() {
     return {
 
       // ── TECH ──────────────────────────────────────────────────
       tech_android: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["kotlin","android","jetpack compose","jetpack","android sdk",
                  "room","hilt","dagger","retrofit","okhttp","coroutines",
                  "livedata","viewmodel","mvvm","mvi","kmm","kmp",
                  "kotlin multiplatform","android studio"],
       },
       tech_ios: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["swift","swiftui","objective-c","ios","xcode","uikit",
                  "coredata","core data","combine","viper","testflight",
                  "cocoapods","spm","swift package manager","watchos","tvos"],
       },
       tech_mobile: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["react native","flutter","dart","ionic","capacitor",
                  "expo","xamarin","maui",".net maui"],
       },
       tech_frontend: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["react","react.js","next.js","vue","angular","svelte",
                  "astro","javascript","typescript","html5","css3","sass",
                  "tailwind css","bootstrap","redux","zustand","webpack",
                  "vite","jest","cypress","playwright","pwa"],
       },
       tech_backend: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["node.js","express","nestjs","fastify","django",
                  "fastapi","spring boot","asp.net","laravel",
                  "golang","rails","elixir","scala","graphql","grpc",
                  "jwt","oauth2","rest","restful","api rest","websockets"],
       },
       tech_programming: {
-        // Cluster para lenguajes de programación — requiere score ALTO
-        // para no activarse solo por mencionar C++ en habilidades
-        minScore: 6.0,
-        skills: ["python","java","c#",".net","php","go","golang",
-                 "ruby","rust","c++","javascript","typescript",
-                 "kotlin","swift","programacion","programming",
-                 "desarrollo de software","software development",
-                 "desarrollador","developer"],
+        minScore: 3.0,  // sigue alto para evitar falsos positivos
+        skills: ["python","java","c#",".net","php","ruby","rust","c++",
+                 "programacion","programming","desarrollo de software",
+                 "software development","desarrollador","developer"],
       },
       tech_db: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["sql","postgresql","mysql","oracle","sql server",
                  "mongodb","redis","cassandra","dynamodb","firebase",
                  "elasticsearch","supabase","mariadb","sqlite"],
       },
       tech_cloud: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["aws","amazon web services","gcp","google cloud","azure",
                  "docker","kubernetes","k8s","terraform","ci/cd",
                  "github actions","jenkins","linux","bash","sre",
                  "cloudformation","lambda","ec2","s3","rds"],
       },
       tech_data: {
-        minScore: 4.0,
-        skills: ["pandas","numpy","spark","kafka","databricks","snowflake",
+        minScore: 2.0,
+        skills: ["pandas","numpy","databricks","snowflake",
                  "etl","elt","bigquery","airflow","power bi","tableau",
-                 "looker","dbt","data warehouse","data lake","data pipeline"],
+                 "looker","dbt","data warehouse","data lake","data pipeline",
+                 "kafka"],
       },
       tech_ml: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["machine learning","deep learning","tensorflow","pytorch",
                  "scikit-learn","sklearn","keras","huggingface","langchain",
                  "llm","nlp","computer vision","mlops","data science",
                  "openai","rag","embeddings"],
       },
       tech_qa: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["selenium","appium","cypress","playwright","jest",
                  "jmeter","k6","postman","qa","quality assurance",
                  "pruebas automatizadas","automation testing","tdd","bdd",
                  "e2e","end-to-end"],
       },
       tech_security: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["cybersecurity","ciberseguridad","pentesting","owasp",
                  "ethical hacking","soc","siem","cissp","ceh","burp suite",
                  "metasploit","wireshark","nmap","zero trust"],
       },
       tech_devops: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["docker","kubernetes","terraform","ansible","helm",
                  "argocd","prometheus","grafana","datadog","nginx",
                  "ci/cd","github actions","jenkins","gitlab ci"],
       },
       tech_arch: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["clean architecture","solid","microservices","microservicios",
                  "ddd","domain-driven design","cqrs","event sourcing",
                  "system design","hexagonal architecture","design patterns"],
@@ -1864,14 +1907,14 @@ export class WebPdfRepository extends CVRepository {
 
       // ── DISEÑO ────────────────────────────────────────────────
       design_ux: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["figma","sketch","adobe xd","wireframing","prototyping",
                  "user research","usability testing","design system",
                  "ui design","ux design","user experience","invision",
                  "zeplin","maze","hotjar"],
       },
       design_graphic: {
-        minScore: 4.0,  // photoshop solo en habilidades no alcanza
+        minScore: 2.0,
         skills: ["adobe photoshop","photoshop","adobe illustrator",
                  "illustrator","adobe indesign","indesign","coreldraw",
                  "diseño grafico","graphic design","branding",
@@ -1879,27 +1922,32 @@ export class WebPdfRepository extends CVRepository {
                  "diseñador grafico","graphic designer"],
       },
       design_motion: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["after effects","adobe after effects","cinema 4d","blender",
                  "maya","3ds max","motion graphics","animacion","animation",
                  "2d animation","3d animation"],
       },
       design_video: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["premiere pro","adobe premiere","final cut pro",
                  "davinci resolve","color grading","edicion de video",
                  "video editing","produccion audiovisual"],
       },
       design_fashion: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["diseño de modas","fashion design","patronaje",
                  "pattern making","costura","sewing","textil","textile",
                  "moda","fashion","estilismo","styling"],
       },
+      design_interior: {
+        minScore: 1.5,
+        skills: ["diseño de interiores","interior design","interiorismo",
+                 "decoracion","decoration","arquitectura de interiores"],
+      },
 
       // ── MARKETING ─────────────────────────────────────────────
       marketing_digital: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["seo","sem","google ads","facebook ads","meta ads",
                  "tiktok ads","email marketing","hubspot","mailchimp",
                  "google analytics","google tag manager","cro",
@@ -1907,14 +1955,14 @@ export class WebPdfRepository extends CVRepository {
                  "a/b testing","marketing digital","digital marketing"],
       },
       marketing_social: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["community manager","social media","redes sociales",
                  "instagram","tiktok","youtube","influencer marketing",
                  "copywriting","storytelling","content creator",
                  "creador de contenido","ugc","reels"],
       },
       marketing_brand: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["brand management","brand manager","trade marketing",
                  "shopper marketing","category management","pricing",
                  "investigacion de mercados","market research",
@@ -1922,15 +1970,21 @@ export class WebPdfRepository extends CVRepository {
                  "compra de medios","media buying"],
       },
       marketing_pr: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["relaciones publicas","public relations",
                  "comunicacion corporativa","gestion de crisis",
                  "media relations","comunicacion interna"],
       },
+      marketing_general: {
+        minScore: 1.5,
+        skills: ["marketing","mercadotecnia","publicidad","advertising",
+                 "publicista","campana publicitaria","estrategia de marketing",
+                 "marketing strategy","btl","atl","ooh"],
+      },
 
       // ── FINANZAS ──────────────────────────────────────────────
       finance_accounting: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["contabilidad","accounting","contador","contaduria",
                  "auditoria","auditing","impuestos","tax","sat","cfdi",
                  "facturacion","nomina","payroll","cuentas por pagar",
@@ -1938,7 +1992,7 @@ export class WebPdfRepository extends CVRepository {
                  "contpaqi","aspel","niif","ifrs","nif","quickbooks"],
       },
       finance_corporate: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["finanzas corporativas","corporate finance","analisis financiero",
                  "financial analysis","modelado financiero","financial modeling",
                  "presupuesto","budgeting","tesoreria","treasury","riesgo financiero",
@@ -1949,52 +2003,72 @@ export class WebPdfRepository extends CVRepository {
                  "corporate debt","covenants","refinanciacion"],
       },
       finance_insurance: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["seguros","insurance","actuaria","actuarial","actuario",
                  "siniestros","claims","reaseguros","reinsurance",
                  "underwriting","suscripcion"],
       },
       finance_banking: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["banca","banking","credito","credit","microfinanzas",
                  "microfinance","fintech","banca de inversion"],
+      },
+      finance_general: {
+        minScore: 1.5,
+        skills: ["finanzas","finance","financiero","financial",
+                 "economia","economics","economista","economist",
+                 "analista financiero","financial analyst",
+                 "director financiero","cfo"],
       },
 
       // ── RRHH ──────────────────────────────────────────────────
       hr: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["recursos humanos","human resources","rrhh","reclutamiento",
                  "recruitment","reclutador","headhunter","talent acquisition",
                  "adquisicion de talento","seleccion de personal","onboarding",
                  "desarrollo organizacional","relaciones laborales",
                  "labor relations","compensaciones","performance management",
                  "hris","workday","successfactors","ley federal del trabajo",
-                 "employer branding","dei"],
+                 "employer branding","dei","capacitacion y desarrollo"],
       },
 
       // ── VENTAS ────────────────────────────────────────────────
       sales: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["ventas","sales","ejecutivo de ventas","account executive",
                  "account manager","business development","desarrollo de negocios",
                  "b2b","b2c","inside sales","field sales","crm","salesforce",
                  "pipedrive","negociacion","negotiation","cierre de ventas",
-                 "prospeccion","prospecting","e-commerce","shopify"],
+                 "prospeccion","prospecting","e-commerce","shopify",
+                 "asesor comercial","representante de ventas"],
       },
 
       // ── OPERACIONES ───────────────────────────────────────────
       operations: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["logistica","logistics","cadena de suministro","supply chain",
                  "inventarios","inventory","compras","procurement",
                  "lean","six sigma","kaizen","5s","tpm","erp","sap",
                  "iso 9001","quality management",
-                 "planeacion de produccion","production planning"],
+                 "planeacion de produccion","production planning",
+                 "mantenimiento","maintenance"],
       },
 
-      // ── SALUD — NUTRICIÓN ─────────────────────────────────────
+      // ── ADMINISTRACIÓN ────────────────────────────────────────
+      admin: {
+        minScore: 1.5,
+        skills: ["administracion","administration","administrador","administrator",
+                 "gestion empresarial","business management","coordinacion",
+                 "coordination","asistente ejecutivo","executive assistant",
+                 "asistente administrativo","administrative assistant",
+                 "secretaria","secretary","auxiliar administrativo",
+                 "gestion de proyectos","project management","pmo","pmp"],
+      },
+
+      // ── SALUD ─────────────────────────────────────────────────
       health_nutrition: {
-        minScore: 2.0,  // umbral bajo — muy específico, pocas colisiones
+        minScore: 1.5,
         skills: ["nutricion","nutrition","nutricionista","nutritionist",
                  "nutriologa","nutriologo","dietista","dietitian",
                  "nutricion deportiva","sports nutrition",
@@ -2004,7 +2078,7 @@ export class WebPdfRepository extends CVRepository {
                  "antropometria","composicion corporal"],
       },
       health_medicine: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["medicina","medico","doctor","physician","cirugia","surgery",
                  "pediatria","ginecologia","cardiologia","neurologia","oncologia",
                  "traumatologia","ortopedia","dermatologia","psiquiatria",
@@ -2012,57 +2086,64 @@ export class WebPdfRepository extends CVRepository {
                  "medico general","medico familiar","consulta medica"],
       },
       health_nursing: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["enfermeria","nursing","enfermero","enfermera","nurse",
                  "paramedico","paramedic","rehabilitacion","rehabilitation",
                  "terapia ocupacional","occupational therapy",
                  "cuidados de enfermeria","atencion de enfermeria"],
       },
       health_lab: {
-        minScore: 2.0,
+        minScore: 1.5,
         skills: ["laboratorio clinico","clinical lab","analisis clinicos",
                  "clinical analysis","toma de muestras","quimica clinica",
                  "hematologia","urinalisis","bacteriologia",
                  "laboratorista","lab technician"],
       },
       health_psychology: {
-        minScore: 3.0,
-        skills: ["psicologia","psychology","psicologo","terapia","therapy",
-                 "psicoterapia","psicoanalisis","terapia cognitivo-conductual",
-                 "cbt","psicologia social","intervencion psicologica"],
+        minScore: 1.5,
+        skills: ["psicologia","psychology","psicologo","psicoterapia",
+                 "psicoanalisis","terapia cognitivo-conductual",
+                 "cbt","psicologia social","intervencion psicologica",
+                 "terapeuta","therapist"],
       },
       health_pharmacy: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["farmacia","pharmacy","farmaceutico","pharmacist",
                  "farmacovigilancia","pharmacovigilance","cofepris",
                  "regulatorio","regulatory affairs","ensayos clinicos",
                  "clinical trials"],
       },
       health_dentistry: {
-        minScore: 2.0,
+        minScore: 1.5,
         skills: ["odontologia","dentistry","dentista","ortodoncia","endodoncia",
                  "odontologia general","clinica dental"],
       },
       health_physio: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["fisioterapia","physiotherapy","fisioterapeuta","fonoaudiologia",
                  "speech therapy","optometria","gerontologia","geriatria"],
       },
       health_veterinary: {
-        minScore: 2.0,
+        minScore: 1.5,
         skills: ["medicina veterinaria","veterinary medicine","veterinario",
                  "veterinarian","zootecnia","animal science","clinica veterinaria"],
       },
       health_public: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["salud publica","public health","epidemiologia","epidemiology",
                  "biomedicina","biotecnologia","biotechnology","bioinformatica",
                  "atencion primaria","primer nivel de atencion"],
       },
+      health_general: {
+        minScore: 1.5,
+        skills: ["salud","health","clinica","clinic","hospital","centro de salud",
+                 "atencion medica","medical care","area de salud","sector salud",
+                 "imss","issste","secretaria de salud","ssa"],
+      },
 
       // ── EDUCACIÓN ─────────────────────────────────────────────
       education: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["docencia","teaching","maestro","profesor","teacher",
                  "pedagogia","pedagogy","e-learning","instructional design",
                  "lms","moodle","educacion superior","curriculum development",
@@ -2070,126 +2151,161 @@ export class WebPdfRepository extends CVRepository {
                  "psicopedagogia","educacion fisica","english teacher",
                  "tesol","tefl","director escolar","salon de clases",
                  "material didactico","maestra","asistente educativa",
-                 "guarderia","preescolar","jardin de ninos"],
-      },
-
-      // ── INGENIERÍA ────────────────────────────────────────────
-      eng_industrial: {
-        minScore: 4.0,
-        skills: ["ingenieria industrial","industrial engineering","manufactura",
-                 "manufacturing","cnc","autocad","solidworks","catia","cad",
-                 "amef","fmea","apqp","ppap","iatf","automotriz","automotive",
-                 "industria 4.0","ingeniero industrial"],
-      },
-      eng_mechanical: {
-        minScore: 4.0,
-        skills: ["ingenieria mecanica","mechanical engineering","ingeniero mecanico",
-                 "soldadura","welding","mecanico","mechanic",
-                 "hvac","refrigeracion","aire acondicionado","mantenimiento de maquinaria"],
-      },
-      eng_electrical: {
-        minScore: 4.0,
-        skills: ["ingenieria electrica","electrical engineering","ingeniero electrico",
-                 "plc","scada","automatizacion","automation","robotica","robotics",
-                 "instrumentacion","electricista","electrician","energias renovables"],
-      },
-      eng_civil: {
-        minScore: 4.0,
-        skills: ["ingenieria civil","civil engineering","ingeniero civil",
-                 "construccion","construction","arquitectura","architecture",
-                 "estructuras","structural engineering","topografia","bim",
-                 "revit","presupuesto de obra","obra civil","residente de obra"],
-      },
-      eng_chemical: {
-        minScore: 4.0,
-        skills: ["ingenieria quimica","chemical engineering","procesos quimicos",
-                 "refineria","petroleo","oil and gas","pemex","perforacion",
-                 "ingenieria ambiental","environmental engineering",
-                 "sustentabilidad","sustainability","residuos"],
+                 "guarderia","preescolar","jardin de ninos",
+                 "educacion basica","primaria","secundaria","preparatoria"],
       },
 
       // ── DERECHO ───────────────────────────────────────────────
       law: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["derecho","law","abogado","lawyer","attorney",
                  "derecho corporativo","corporate law","derecho laboral",
                  "labor law","derecho fiscal","tax law","derecho penal",
                  "criminal law","compliance","contratos","contracts",
                  "litigio","litigation","notaria","propiedad intelectual",
                  "intellectual property","patentes","gdpr","amparo",
-                 "mediacion","arbitraje","criminologia","forense"],
+                 "mediacion","arbitraje","criminologia","forense",
+                 "asesor juridico","legal advisor","consultor legal"],
+      },
+
+      // ── INGENIERÍA ────────────────────────────────────────────
+      eng_industrial: {
+        minScore: 1.5,
+        skills: ["ingenieria industrial","industrial engineering","manufactura",
+                 "manufacturing","cnc","autocad","solidworks","catia","cad",
+                 "amef","fmea","apqp","ppap","iatf","automotriz","automotive",
+                 "industria 4.0","ingeniero industrial","linea de produccion"],
+      },
+      eng_mechanical: {
+        minScore: 1.5,
+        skills: ["ingenieria mecanica","mechanical engineering","ingeniero mecanico",
+                 "soldadura","welding","mecanico","mechanic",
+                 "hvac","refrigeracion","aire acondicionado",
+                 "mantenimiento de maquinaria","maquinaria","equipos industriales"],
+      },
+      eng_electrical: {
+        minScore: 1.5,
+        skills: ["ingenieria electrica","electrical engineering","ingeniero electrico",
+                 "plc","scada","automatizacion","automation","robotica","robotics",
+                 "instrumentacion","electricista","electrician","energias renovables",
+                 "energia solar","instalaciones electricas"],
+      },
+      eng_civil: {
+        minScore: 1.5,
+        skills: ["ingenieria civil","civil engineering","ingeniero civil",
+                 "construccion","construction","arquitectura","architecture",
+                 "estructuras","structural engineering","topografia","bim",
+                 "revit","presupuesto de obra","obra civil","residente de obra",
+                 "urbanismo","urban planning","arquitecto"],
+      },
+      eng_chemical: {
+        minScore: 1.5,
+        skills: ["ingenieria quimica","chemical engineering","procesos quimicos",
+                 "refineria","petroleo","oil and gas","pemex","perforacion",
+                 "ingenieria ambiental","environmental engineering",
+                 "sustentabilidad","sustainability","residuos","iso 14001"],
+      },
+      eng_aeronautical: {
+        minScore: 1.5,
+        skills: ["ingenieria aeronautica","aeronautical engineering",
+                 "ingenieria aeroespacial","aerospace engineering",
+                 "piloto","pilot","aviacion","aviation","controlador aereo",
+                 "ingenieria naval","naval engineering","marina mercante"],
+      },
+      eng_food: {
+        minScore: 1.5,
+        skills: ["ingenieria de alimentos","food engineering","tecnologia de alimentos",
+                 "food technology","haccp","inocuidad alimentaria","food safety",
+                 "bpm","bromatologia","calidad alimentaria"],
       },
 
       // ── GASTRONOMÍA ───────────────────────────────────────────
       gastronomy: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["gastronomia","gastronomy","chef","cocinero","cook",
                  "pasteleria","reposteria","panaderia","bartender","barista",
                  "sommelier","enologia","mesero","waiter","hoteleria",
                  "hospitality","turismo","tourism","agencia de viajes",
                  "eventos","event planning","catering","cocteleria","mixology",
-                 "haccp","inocuidad alimentaria"],
+                 "haccp","cocina","restaurante","restaurant"],
       },
 
       // ── DEPORTES ──────────────────────────────────────────────
       sports: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["entrenador personal","personal trainer","personal training",
                  "entrenador deportivo","sports coach","preparador fisico",
                  "fitness","yoga","pilates","crossfit","natacion","futbol",
                  "basquetbol","basketball","tenis","atletismo","gimnasia",
                  "artes marciales","boxeo","arbitro","referee",
                  "fisioterapia deportiva","medicina deportiva",
-                 "gestion deportiva","sports management"],
+                 "gestion deportiva","sports management","coaching deportivo"],
       },
 
       // ── ARTES & MÚSICA ────────────────────────────────────────
       arts: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["musica","music","musico","musician","cantante","singer",
                  "compositor","composition","produccion musical","music producer",
                  "dj","ingenieria de audio","audio engineering","teatro",
                  "theater","acting","actor","danza","dance","bailarin",
                  "dancer","ballet","coreografia","choreography",
-                 "artes plasticas","bellas artes","curador"],
+                 "artes plasticas","bellas artes","curador",
+                 "fotografia","photography","fotografo","photographer"],
+      },
+
+      // ── PERIODISMO & COMUNICACIÓN ─────────────────────────────
+      journalism: {
+        minScore: 1.5,
+        skills: ["periodismo","journalism","periodista","journalist",
+                 "redaccion","writing","redactor","locutor","locution",
+                 "comunicacion","communications","presentador","conductor",
+                 "corresponsal","reportero","reporter","editor",
+                 "corrector de estilo","proofreading","traduccion","translation",
+                 "traductor","translator","interpretacion","interpretation",
+                 "escritura creativa","creative writing","guion","guionista",
+                 "screenwriting","podcast","radio","television"],
       },
 
       // ── AGRONOMÍA ─────────────────────────────────────────────
       agronomy: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["agronomia","agronomy","agronomo","agricultura","agriculture",
                  "ingenieria agricola","cultivos","crops","suelos","soil science",
                  "ganaderia","livestock","fitosanidad","silvicultura","forestry",
                  "acuicultura","aquaculture","pesca","fisheries",
-                 "horticultura","horticulture","paisajismo","landscape design"],
+                 "horticultura","horticulture","paisajismo","landscape design",
+                 "agricultura organica","organic farming","sagarpa","sader"],
       },
 
       // ── SEGURIDAD ─────────────────────────────────────────────
       safety: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["seguridad privada","private security","guardia de seguridad",
                  "security guard","vigilancia","policia","police",
                  "seguridad industrial","industrial safety","hse",
                  "seguridad e higiene","stps","proteccion civil",
-                 "bombero","firefighter","rescate","rescue"],
+                 "bombero","firefighter","rescate","rescue",
+                 "investigacion privada","private investigator","detective"],
       },
 
       // ── CIENCIAS SOCIALES ─────────────────────────────────────
       social_sciences: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["sociologia","sociology","antropologia","anthropology",
                  "trabajo social","social work","trabajador social",
-                 "economia","economics","ciencias politicas","political science",
+                 "ciencias politicas","political science",
                  "relaciones internacionales","international relations",
                  "diplomacia","diplomacy","historia","history",
                  "filosofia","philosophy","linguistica","linguistics",
                  "administracion publica","public administration",
-                 "politica publica","public policy"],
+                 "politica publica","public policy","sector publico",
+                 "gobierno","government","servicio publico"],
       },
 
       // ── PRODUCTO & ESTRATEGIA ─────────────────────────────────
       product: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["product manager","product management","gestion de producto",
                  "roadmap","okr","product strategy","go-to-market",
                  "business strategy","consultoria","consulting",
@@ -2200,14 +2316,14 @@ export class WebPdfRepository extends CVRepository {
 
       // ── BLOCKCHAIN ────────────────────────────────────────────
       blockchain: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["blockchain","web3","solidity","ethereum","smart contracts",
                  "nft","defi","hardhat","truffle","ipfs"],
       },
 
       // ── GAME DEV ──────────────────────────────────────────────
       gamedev: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["unity","unreal engine","godot","game development",
                  "desarrollo de videojuegos","game design",
                  "diseño de videojuegos"],
@@ -2215,14 +2331,14 @@ export class WebPdfRepository extends CVRepository {
 
       // ── IoT / EMBEBIDOS ───────────────────────────────────────
       embedded: {
-        minScore: 4.0,
+        minScore: 2.0,
         skills: ["arduino","raspberry pi","iot","firmware","fpga",
                  "rtos","microcontroller","microcontrolador"],
       },
 
       // ── INMOBILIARIO ──────────────────────────────────────────
       real_estate: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["agente inmobiliario","real estate agent","bienes raices",
                  "real estate","corredor inmobiliario","real estate broker",
                  "valuador","property appraiser","administracion de propiedades",
@@ -2231,53 +2347,124 @@ export class WebPdfRepository extends CVRepository {
 
       // ── CIENCIAS ──────────────────────────────────────────────
       sciences: {
-        minScore: 3.0,
+        minScore: 1.5,
         skills: ["biologia","biology","quimica","chemistry","fisica","physics",
                  "matematicas","mathematics","microbiologia","microbiology",
                  "bioquimica","biochemistry","ecologia","ecology",
-                 "geologia","geology","oceanografia","meteorologia"],
+                 "geologia","geology","oceanografia","meteorologia",
+                 "laboratorio de investigacion","investigacion cientifica",
+                 "ciencias naturales","natural sciences"],
+      },
+
+      // ── MINERÍA & PETRÓLEO ────────────────────────────────────
+      mining_oil: {
+        minScore: 1.5,
+        skills: ["mineria","mining","ingenieria minera","petroleo","oil and gas",
+                 "pemex","perforacion","refineria","yacimientos",
+                 "geologia minera","minerales","extraccion"],
+      },
+
+      // ── SECTOR PÚBLICO ────────────────────────────────────────
+      public_sector: {
+        minScore: 1.5,
+        skills: ["administracion publica","public administration","gobierno",
+                 "government","servicio publico","politica publica","public policy",
+                 "sector publico","dependencia gubernamental","municipio",
+                 "alcaldia","secretaria de estado","instituto","organismo publico"],
       },
     };
   }
 
-  // ── MAPA INVERSO: skill → [clusters] ─────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // MAPA INVERSO skill → [clusters]
+  // ─────────────────────────────────────────────────────────────
   get _skillToCluster() {
     if (this.__skillToCluster) return this.__skillToCluster;
     const map = {};
-    for (const [clusterName, cluster] of Object.entries(this._skillClusters)) {
+    for (const [name, cluster] of Object.entries(this._skillClusters)) {
       for (const skill of cluster.skills) {
         if (!map[skill]) map[skill] = [];
-        map[skill].push(clusterName);
+        map[skill].push(name);
       }
     }
     this.__skillToCluster = map;
     return map;
   }
 
-  // ── SEGMENTADOR DE SECCIONES ──────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // JOBS RELACIONADOS — dado un cluster principal, qué otros
+  // clusters/roles también son relevantes para mostrar más vacantes
+  // ─────────────────────────────────────────────────────────────
+  get _relatedClusters() {
+    return {
+      health_nutrition:   ["health_general","health_medicine","health_public","education"],
+      health_medicine:    ["health_general","health_nursing","health_pharmacy","health_public"],
+      health_nursing:     ["health_general","health_medicine","health_physio"],
+      health_lab:         ["health_general","health_medicine","sciences"],
+      health_psychology:  ["health_general","education","social_sciences"],
+      health_pharmacy:    ["health_general","health_medicine","sciences"],
+      health_dentistry:   ["health_general","health_medicine"],
+      health_physio:      ["health_general","health_medicine","sports"],
+      health_veterinary:  ["sciences","agronomy"],
+      health_general:     ["health_medicine","health_nursing","health_nutrition"],
+      tech_android:       ["tech_mobile","tech_backend","tech_arch"],
+      tech_ios:           ["tech_mobile","tech_backend","tech_arch"],
+      tech_mobile:        ["tech_android","tech_ios","tech_frontend"],
+      tech_frontend:      ["tech_backend","design_ux","tech_mobile"],
+      tech_backend:       ["tech_db","tech_cloud","tech_arch"],
+      tech_programming:   ["tech_backend","tech_frontend","tech_arch"],
+      tech_db:            ["tech_backend","tech_data","operations"],
+      tech_cloud:         ["tech_devops","tech_backend","tech_arch"],
+      tech_data:          ["tech_ml","tech_db","finance_corporate"],
+      tech_ml:            ["tech_data","sciences","product"],
+      tech_devops:        ["tech_cloud","tech_arch","tech_backend"],
+      tech_security:      ["tech_devops","tech_arch","safety"],
+      design_ux:          ["design_graphic","tech_frontend","product"],
+      design_graphic:     ["design_ux","design_motion","marketing_digital"],
+      marketing_digital:  ["marketing_social","marketing_brand","sales"],
+      marketing_social:   ["marketing_digital","marketing_pr","journalism"],
+      finance_accounting: ["finance_corporate","finance_banking","admin"],
+      finance_corporate:  ["finance_banking","finance_accounting","product"],
+      finance_banking:    ["finance_corporate","finance_insurance","sales"],
+      hr:                 ["admin","sales","education"],
+      sales:              ["marketing_digital","marketing_brand","product"],
+      operations:         ["admin","eng_industrial","finance_accounting"],
+      education:          ["social_sciences","health_psychology","journalism"],
+      law:                ["finance_corporate","public_sector","social_sciences"],
+      eng_industrial:     ["operations","eng_mechanical","eng_electrical"],
+      eng_civil:          ["real_estate","operations","eng_mechanical"],
+      journalism:         ["marketing_social","marketing_pr","arts"],
+      sports:             ["health_physio","health_nutrition","education"],
+      gastronomy:         ["sales","admin","health_nutrition"],
+      agronomy:           ["sciences","eng_chemical","eng_food"],
+      social_sciences:    ["education","public_sector","law"],
+      product:            ["sales","tech_frontend","marketing_digital"],
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SEGMENTADOR DE SECCIONES
+  // ─────────────────────────────────────────────────────────────
   _segmentSections(text) {
-    // Detecta encabezados de sección por patrones comunes en CVs
     const sectionPatterns = [
-      { regex: /\b(experiencia|experience|trabajo|employment|historial laboral|trayectoria)\b/gi, type: 'experience' },
-      { regex: /\b(educacion|education|formacion|estudios|licenciatura|carrera tecnica|universidad|instituto|escuela)\b/gi, type: 'education' },
-      { regex: /\b(habilidades|skills|competencias|conocimientos|aptitudes|capacidades)\b/gi, type: 'skills' },
-      { regex: /\b(cursos|courses|certificaciones|certifications|diplomados|talleres|capacitaciones)\b/gi, type: 'courses' },
-      { regex: /\b(perfil|objetivo|acerca de|about|resumen|summary|presentacion)\b/gi, type: 'profile' },
+      { regex: /\b(experiencia|experience|trabajo|employment|historial laboral|trayectoria|experiencia profesional|experiencia laboral)\b/gi, type: 'experience' },
+      { regex: /\b(educacion|education|formacion|estudios|licenciatura|carrera tecnica|universidad|instituto|escuela|academia)\b/gi, type: 'education' },
+      { regex: /\b(habilidades|skills|competencias|conocimientos|aptitudes|capacidades|herramientas)\b/gi, type: 'skills' },
+      { regex: /\b(cursos|courses|certificaciones|certifications|diplomados|talleres|capacitaciones|logros)\b/gi, type: 'courses' },
+      { regex: /\b(perfil|objetivo|acerca de|about|resumen|summary|presentacion|sobre mi)\b/gi, type: 'profile' },
     ];
 
-    // Dividir el texto en líneas y asignar sección a cada una
-    const lines  = text.split('\n');
+    const lines = text.split('\n');
     let currentSection = 'default';
-    const segmented    = []; // [{ text, sectionType }]
+    const segmented = [];
 
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
 
-      // Detectar si esta línea es un encabezado de sección
       for (const pattern of sectionPatterns) {
         pattern.regex.lastIndex = 0;
-        if (pattern.regex.test(trimmed) && trimmed.length < 50) {
+        if (pattern.regex.test(trimmed) && trimmed.length < 60) {
           currentSection = pattern.type;
           break;
         }
@@ -2285,12 +2472,17 @@ export class WebPdfRepository extends CVRepository {
       segmented.push({ text: trimmed, sectionType: currentSection });
     }
 
+    // Si el CV llegó como un solo bloque (sin saltos), dividir por oraciones
+    if (segmented.length < 5) {
+      return text.split(/[.!?;]/).map(s => ({ text: s.trim(), sectionType: 'default' })).filter(s => s.text);
+    }
+
     return segmented;
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // PARSE — sistema de scoring por sección
-  // ═══════════════════════════════════════════════════════════════
+  // ─────────────────────────────────────────────────────────────
+  // PARSE — scoring por sección + trabajos relacionados
+  // ─────────────────────────────────────────────────────────────
   async parse(file) {
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -2305,93 +2497,94 @@ export class WebPdfRepository extends CVRepository {
       }
 
       const normalizedText = this._normalize(originalText);
+      const segments       = this._segmentSections(normalizedText);
 
-      // ── PASO 1: Segmentar el CV en secciones ──────────────────
-      const segments = this._segmentSections(normalizedText);
-
-      // ── PASO 2: Encontrar skills y acumular score por cluster ──
+      // ── PASO 1: Escanear skills y acumular scores ──────────────
       const sortedCatalog = [...this.skillCatalog].sort((a, b) => b.id.length - a.id.length);
-
-      // clusterScores: clusterName → score acumulado
-      const clusterScores  = {};
-      // skillMatches: normalizedSkill → { item, matchIndex, sectionType }
-      const skillMatches   = new Map();
+      const clusterScores = {};
+      const skillMatches  = new Map();
 
       for (const item of sortedCatalog) {
-        const normalizedSkill = this._normalize(item.id);
+        const ns = this._normalize(item.id);
+        if (this._hardBlocked.has(ns)) continue;
 
-        // Saltar skills completamente bloqueadas
-        if (this._hardBlocked.has(normalizedSkill)) continue;
-
-        const escaped = normalizedSkill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escaped = ns.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex   = new RegExp(`(?<![\\w.#@])${escaped}(?![\\w.#@])`, 'gi');
 
-        // Buscar en cada segmento y acumular score según la sección
         for (const segment of segments) {
           regex.lastIndex = 0;
           if (regex.test(segment.text)) {
-            const weight = this._sectionWeights[segment.sectionType] || 1.0;
-
-            // Reducir peso extra para skills de alto riesgo
-            const riskFactor = this._riskySkills.has(normalizedSkill) ? 0.4 : 1.0;
+            const weight      = this._sectionWeights[segment.sectionType] ?? 1.5;
+            const riskFactor  = this._riskySkills.has(ns) ? 0.5 : 1.0;
             const finalWeight = weight * riskFactor;
 
-            // Acumular score en todos los clusters de esta skill
-            const clusters = this._skillToCluster[normalizedSkill] || [];
-            for (const clusterName of clusters) {
-              clusterScores[clusterName] = (clusterScores[clusterName] || 0) + finalWeight;
+            for (const cn of (this._skillToCluster[ns] || [])) {
+              clusterScores[cn] = (clusterScores[cn] || 0) + finalWeight;
             }
 
-            // Guardar la primera aparición para el preview
-            if (!skillMatches.has(normalizedSkill)) {
-              const idx   = normalizedText.indexOf(normalizedSkill);
+            if (!skillMatches.has(ns)) {
+              const idx   = normalizedText.indexOf(ns);
               const start = Math.max(0, idx - 50);
               const end   = Math.min(originalText.length, idx + item.id.length + 70);
-              skillMatches.set(normalizedSkill, {
+              skillMatches.set(ns, {
                 item,
-                matchIndex:  idx,
                 sectionType: segment.sectionType,
-                preview:     originalText.substring(start, end).trim(),
+                preview: originalText.substring(start, end).trim(),
               });
             }
-            break; // Solo contar una vez por skill aunque aparezca en múltiples segmentos
+            break;
           }
         }
       }
 
-      // ── PASO 3: Clusters válidos (score >= minScore) ───────────
+      // ── PASO 2: Clusters válidos ───────────────────────────────
       const validClusters = new Set();
-      for (const [clusterName, score] of Object.entries(clusterScores)) {
-        const required = this._skillClusters[clusterName]?.minScore || 3.0;
-        if (score >= required) {
-          validClusters.add(clusterName);
+      for (const [cn, score] of Object.entries(clusterScores)) {
+        if (score >= (this._skillClusters[cn]?.minScore ?? 1.5)) {
+          validClusters.add(cn);
         }
       }
 
-      // ── PASO 4: Construir resultado final ─────────────────────
+      // ── PASO 3: Expandir con clusters relacionados ─────────────
+      // Agrega clusters relacionados con score reducido (50%)
+      // para mostrar más roles relevantes sin falsas activaciones
+      const expandedClusters = new Set(validClusters);
+      for (const cn of validClusters) {
+        const related = this._relatedClusters[cn] || [];
+        for (const rCn of related) {
+          if (!validClusters.has(rCn)) {
+            // Solo agregar si el cluster relacionado tiene al menos algún score
+            if ((clusterScores[rCn] || 0) > 0) {
+              expandedClusters.add(rCn);
+            }
+          }
+        }
+      }
+
+      // ── PASO 4: Construir resultado ────────────────────────────
       const matchedJobs = new Map();
 
-      for (const [normalizedSkill, { item, preview }] of skillMatches) {
-        const clusters = this._skillToCluster[normalizedSkill] || [];
-        const hasValidCluster = clusters.some(c => validClusters.has(c));
-        if (!hasValidCluster) continue;
+      for (const [ns, { item, preview }] of skillMatches) {
+        const clusters = this._skillToCluster[ns] || [];
+        if (!clusters.some(c => expandedClusters.has(c))) continue;
 
         const { title } = item;
         if (!matchedJobs.has(title)) {
           matchedJobs.set(title, { title, skills: [item.id], preview: `...${preview}...` });
         } else {
-          const existing = matchedJobs.get(title);
-          if (!existing.skills.includes(item.id)) existing.skills.push(item.id);
+          const ex = matchedJobs.get(title);
+          if (!ex.skills.includes(item.id)) ex.skills.push(item.id);
         }
       }
 
-      // ── PASO 5: Ordenar por relevancia (clusters con mayor score primero) ──
+      // ── PASO 5: Ordenar por score descendente ──────────────────
       const titleScores = {};
-      for (const [normalizedSkill, { item }] of skillMatches) {
-        const clusters = this._skillToCluster[normalizedSkill] || [];
-        for (const c of clusters) {
-          if (!validClusters.has(c)) continue;
-          titleScores[item.title] = (titleScores[item.title] || 0) + (clusterScores[c] || 0);
+      for (const [ns, { item }] of skillMatches) {
+        for (const c of (this._skillToCluster[ns] || [])) {
+          if (!expandedClusters.has(c)) continue;
+          // Clusters primarios tienen peso completo, relacionados 50%
+          const multiplier = validClusters.has(c) ? 1.0 : 0.5;
+          titleScores[item.title] = (titleScores[item.title] || 0) + (clusterScores[c] || 0) * multiplier;
         }
       }
 
@@ -2400,7 +2593,7 @@ export class WebPdfRepository extends CVRepository {
         .map(job => ({ name: job.skills.join(', '), title: job.title, preview: job.preview }));
 
       return {
-        name:   file.name.replace(".pdf", "").replace(/(_|-)/g, " "),
+        name: file.name.replace(".pdf", "").replace(/(_|-)/g, " "),
         skills: finalDetected.length > 0
           ? finalDetected
           : [{ name: "General", title: "Professional", preview: "No se detectaron habilidades con suficiente contexto." }],
