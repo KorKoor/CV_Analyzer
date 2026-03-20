@@ -173,13 +173,19 @@
               class="w-full bg-kwBg border border-kwBorder rounded-2xl p-4 text-kwText font-semibold focus:border-kwAccent focus:ring-0 outline-none transition-all cursor-pointer appearance-none"
               aria-label="Selecciona la ciudad o región donde buscar vacantes"
             >
+              <!-- ── REMOTO ─────────────────────────────────────────── -->
               <optgroup label="🌐 Remoto">
                 <option value="México">Todo México (Remoto)</option>
+                <option value="United States">Todo USA (Remoto)</option>
                 <option value="América Latina">LATAM (Remoto)</option>
+                <option value="Remote USA">Remote USA</option>
               </optgroup>
 
-              <optgroup label="🏙️ Principales ciudades MX">
-                <option value="Ciudad de México">CDMX</option>
+              <!-- ── MÉXICO — CIUDADES PRINCIPALES ─────────────────── -->
+              <optgroup label="🏙️ México — Ciudades principales">
+                <option value="Ciudad de México">
+                  Ciudad de México (CDMX)
+                </option>
                 <option value="Guadalajara">Guadalajara, JAL</option>
                 <option value="Monterrey">Monterrey, NL</option>
                 <option value="Puebla">Puebla, PUE</option>
@@ -196,26 +202,123 @@
                 <option value="Cancún">Cancún, QROO</option>
                 <option value="Toluca">Toluca, MEX</option>
                 <option value="Chihuahua">Chihuahua, CHIH</option>
-                <option value="Culiacán">Culiacán, SIN</option>
-                <option value="Morelia">Morelia, MICH</option>
-                <option value="Veracruz">Veracruz, VER</option>
-                <option value="Villahermosa">Villahermosa, TAB</option>
-                <option value="Oaxaca">Oaxaca, OAX</option>
-                <option value="Tuxtla Gutiérrez">Tuxtla Gutiérrez, CHIS</option>
-                <option value="Durango">Durango, DGO</option>
-                <option value="Mazatlán">Mazatlán, SIN</option>
-                <option value="Acapulco">Acapulco, GRO</option>
-                <option value="Tampico">Tampico, TAMPS</option>
-                <option value="Reynosa">Reynosa, TAMPS</option>
-                <option value="Matamoros">Matamoros, TAMPS</option>
-                <option value="Nuevo Laredo">Nuevo Laredo, TAMPS</option>
-                <option value="Ensenada">Ensenada, BC</option>
-                <option value="La Paz">La Paz, BCS</option>
-                <option value="Colima">Colima, COL</option>
-                <option value="Cuernavaca">Cuernavaca, MOR</option>
-                <option value="Campeche">Campeche, CAMP</option>
               </optgroup>
 
+              <!-- ── MÉXICO — TODOS LOS ESTADOS ────────────────────── -->
+              <optgroup label="🇲🇽 México — Todos los estados">
+                <option value="Aguascalientes">Aguascalientes</option>
+                <option value="Baja California">Baja California</option>
+                <option value="Baja California Sur">Baja California Sur</option>
+                <option value="Campeche">Campeche</option>
+                <option value="Chiapas">Chiapas</option>
+                <option value="Chihuahua">Chihuahua</option>
+                <option value="Ciudad de México">Ciudad de México</option>
+                <option value="Coahuila">Coahuila</option>
+                <option value="Colima">Colima</option>
+                <option value="Durango">Durango</option>
+                <option value="Guanajuato">Guanajuato</option>
+                <option value="Guerrero">Guerrero</option>
+                <option value="Hidalgo">Hidalgo</option>
+                <option value="Jalisco">Jalisco</option>
+                <option value="México State">Estado de México</option>
+                <option value="Michoacán">Michoacán</option>
+                <option value="Morelos">Morelos</option>
+                <option value="Nayarit">Nayarit</option>
+                <option value="Nuevo León">Nuevo León</option>
+                <option value="Oaxaca">Oaxaca</option>
+                <option value="Puebla">Puebla</option>
+                <option value="Querétaro">Querétaro</option>
+                <option value="Quintana Roo">Quintana Roo</option>
+                <option value="San Luis Potosí">San Luis Potosí</option>
+                <option value="Sinaloa">Sinaloa</option>
+                <option value="Sonora">Sonora</option>
+                <option value="Tabasco">Tabasco</option>
+                <option value="Tamaulipas">Tamaulipas</option>
+                <option value="Tlaxcala">Tlaxcala</option>
+                <option value="Veracruz">Veracruz</option>
+                <option value="Yucatán">Yucatán</option>
+                <option value="Zacatecas">Zacatecas</option>
+              </optgroup>
+
+              <!-- ── USA — CIUDADES PRINCIPALES ────────────────────── -->
+              <optgroup label="🇺🇸 USA — Ciudades principales">
+                <option value="New York City">New York City, NY</option>
+                <option value="San Francisco">San Francisco, CA</option>
+                <option value="Los Angeles">Los Angeles, CA</option>
+                <option value="Chicago">Chicago, IL</option>
+                <option value="Austin">Austin, TX</option>
+                <option value="Miami">Miami, FL</option>
+                <option value="Seattle">Seattle, WA</option>
+                <option value="Boston">Boston, MA</option>
+                <option value="Denver">Denver, CO</option>
+                <option value="Atlanta">Atlanta, GA</option>
+                <option value="Dallas">Dallas, TX</option>
+                <option value="Houston">Houston, TX</option>
+                <option value="Washington DC">Washington DC</option>
+                <option value="San Jose">San Jose, CA</option>
+                <option value="Portland">Portland, OR</option>
+                <option value="Nashville">Nashville, TN</option>
+                <option value="Las Vegas">Las Vegas, NV</option>
+                <option value="Minneapolis">Minneapolis, MN</option>
+                <option value="Phoenix">Phoenix, AZ</option>
+                <option value="San Diego">San Diego, CA</option>
+              </optgroup>
+
+              <!-- ── USA — TODOS LOS ESTADOS ───────────────────────── -->
+              <optgroup label="🇺🇸 USA — Todos los estados">
+                <option value="Alabama">Alabama</option>
+                <option value="Alaska">Alaska</option>
+                <option value="Arizona">Arizona</option>
+                <option value="Arkansas">Arkansas</option>
+                <option value="California">California</option>
+                <option value="Colorado">Colorado</option>
+                <option value="Connecticut">Connecticut</option>
+                <option value="Delaware">Delaware</option>
+                <option value="Florida">Florida</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Hawaii">Hawaii</option>
+                <option value="Idaho">Idaho</option>
+                <option value="Illinois">Illinois</option>
+                <option value="Indiana">Indiana</option>
+                <option value="Iowa">Iowa</option>
+                <option value="Kansas">Kansas</option>
+                <option value="Kentucky">Kentucky</option>
+                <option value="Louisiana">Louisiana</option>
+                <option value="Maine">Maine</option>
+                <option value="Maryland">Maryland</option>
+                <option value="Massachusetts">Massachusetts</option>
+                <option value="Michigan">Michigan</option>
+                <option value="Minnesota">Minnesota</option>
+                <option value="Mississippi">Mississippi</option>
+                <option value="Missouri">Missouri</option>
+                <option value="Montana">Montana</option>
+                <option value="Nebraska">Nebraska</option>
+                <option value="Nevada">Nevada</option>
+                <option value="New Hampshire">New Hampshire</option>
+                <option value="New Jersey">New Jersey</option>
+                <option value="New Mexico">New Mexico</option>
+                <option value="New York">New York</option>
+                <option value="North Carolina">North Carolina</option>
+                <option value="North Dakota">North Dakota</option>
+                <option value="Ohio">Ohio</option>
+                <option value="Oklahoma">Oklahoma</option>
+                <option value="Oregon">Oregon</option>
+                <option value="Pennsylvania">Pennsylvania</option>
+                <option value="Rhode Island">Rhode Island</option>
+                <option value="South Carolina">South Carolina</option>
+                <option value="South Dakota">South Dakota</option>
+                <option value="Tennessee">Tennessee</option>
+                <option value="Texas">Texas</option>
+                <option value="Utah">Utah</option>
+                <option value="Vermont">Vermont</option>
+                <option value="Virginia">Virginia</option>
+                <option value="Washington">Washington</option>
+                <option value="West Virginia">West Virginia</option>
+                <option value="Wisconsin">Wisconsin</option>
+                <option value="Wyoming">Wyoming</option>
+              </optgroup>
+
+              <!-- ── LATAM ──────────────────────────────────────────── -->
               <optgroup label="🌎 LATAM">
                 <option value="Buenos Aires">Buenos Aires, ARG</option>
                 <option value="Bogotá">Bogotá, COL</option>
@@ -223,6 +326,14 @@
                 <option value="Lima">Lima, PER</option>
                 <option value="São Paulo">São Paulo, BRA</option>
                 <option value="Medellín">Medellín, COL</option>
+                <option value="Caracas">Caracas, VEN</option>
+                <option value="Montevideo">Montevideo, URY</option>
+                <option value="Quito">Quito, ECU</option>
+                <option value="Ciudad de Guatemala">
+                  Ciudad de Guatemala, GTM
+                </option>
+                <option value="San José">San José, CRI</option>
+                <option value="Panamá">Panamá, PAN</option>
               </optgroup>
             </select>
           </div>
