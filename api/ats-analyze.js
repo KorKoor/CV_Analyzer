@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     .replace(/\s{3,}/g, '\n')
     .replace(/[^\S\n]+/g, ' ')
     .trim()
-    .substring(0, 3000);
+    .substring(0, 2000); // reducido para dar espacio al output
 
   let lastError = null;
 
@@ -92,7 +92,7 @@ async function callGemini(apiKey, model, cvText, fileName) {
           contents: [{ parts: [{ text: buildPrompt(cvText, fileName) }] }],
           generationConfig: {
             temperature:      0.1,
-            maxOutputTokens:  3000,
+            maxOutputTokens:  4096,
             candidateCount:   1,
             responseMimeType: 'application/json',
           },
