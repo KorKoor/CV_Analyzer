@@ -1,6 +1,7 @@
 import { WebPdfRepository } from '../data/WebPdfRepository.js';
 import { AnalyzeResume }    from '../core/use-cases/AnalyzeResume.js';
 import { createATSPanel, enableATSPanel, extractTextFromPDF } from './ats-analyzer.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = '../libs/pdf.worker.min.js';
 
 const repo    = new WebPdfRepository();
 const useCase = new AnalyzeResume(repo);
