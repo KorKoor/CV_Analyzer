@@ -89,12 +89,12 @@ async function callGemini(apiKey, model, cvText, fileName) {
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          contents: [{ parts: [{ text: buildPrompt(cvText, fileName) }] }],
+          contents: [{ parts: [{ text: buildPrompt(cvText) }] }],
           generationConfig: {
             temperature:      0.1,
-            maxOutputTokens:  800,
+            maxOutputTokens:  600,
             candidateCount:   1,
-            responseMimeType: 'application/json',
+            
           },
         }),
       }
@@ -121,16 +121,10 @@ async function callGemini(apiKey, model, cvText, fileName) {
 
     console.log('Raw preview:', rawText.substring(0, 100));
 
-    let analysis;
-    let jsonStr = rawText.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-
-    try { const m = jsonStr.match(/\{[\s\S]*\}/); if (m) analysis = JSON.parse(m[0]); } catch {}
-    if (!analysis) { try { const i = jsonStr.lastIndexOf('}'); if (i>0) analysis = JSON.parse(jsonStr.substring(0,i+1)); } catch {} }
-    if (!analysis) { try { analysis = JSON.parse(jsonStr); } catch {} }
-
-    if (!analysis) {
+    const analysis = parseTextResponse(rawText);
+    if (!analysis.scoreSummary && !analysis.quickWins.length) {
       console.error('PARSE FAILED:', rawText.substring(0, 300));
-      return { _error: 'JSON inválido de Gemini — intenta de nuevo' };
+      return { _error: 'Respuesta inválida de Gemini — intenta de nuevo' };
     }
 
     if (typeof analysis.score !== 'number') analysis.score = 50;
