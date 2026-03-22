@@ -35,6 +35,12 @@ app.get("/api/get-job-listings", async (req, res) => {
   await getJobListings(req, res);
 });
 
+import { default as atsAnalyze } from './api/ats-analyze.js';
+
+app.post('/api/ats-analyze', async (req, res) => {
+  await atsAnalyze(req, res);
+});
+
 // ── Servidor ─────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
