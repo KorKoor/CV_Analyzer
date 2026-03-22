@@ -180,7 +180,7 @@ toastContainer.id = 'toast-container';
 toastContainer.setAttribute('role','status'); toastContainer.setAttribute('aria-live','polite');
 document.body.appendChild(toastContainer);
 
-// PDF Preview
+// PDF Preview mejorado con botón de acceso al ATS
 const pdfPreviewPanel = document.createElement('div');
 pdfPreviewPanel.id = 'pdf-preview-panel';
 pdfPreviewPanel.setAttribute('aria-label','Vista previa del PDF');
@@ -195,10 +195,17 @@ pdfPreviewPanel.innerHTML = `
   <div id="pdf-canvas-container" role="img" aria-label="Páginas del CV"></div>
   <div class="pdf-page-nav">
     <button id="pdf-prev" class="pdf-nav-btn" aria-label="Página anterior" disabled>‹</button>
-    <span id="pdf-page-info" aria-live="polite">Pág. 1 / 1</span>
+    <span id="pdf-page-info" aria-live="polite" style="min-width: 80px; text-align: center;">Pág. 1 / 1</span>
     <button id="pdf-next" class="pdf-nav-btn" aria-label="Página siguiente">›</button>
-    <span style="margin-left:auto;font-size:.65rem;"><span id="pdf-size"></span></span>
+    
+    <button id="go-to-ats" class="filter-chip active" 
+            style="margin-left: 1.5rem; font-size: 0.6rem; padding: 0.4rem 0.8rem; background: #00875e; color: white; border: none; display: none; align-items: center; gap: 0.4rem; transition: all 0.2s ease;">
+       <span style="font-size: 0.8rem;">📊</span> VER ANÁLISIS DE PERFIL
+    </button>
+    
+    <span style="margin-left:auto; font-size:.65rem; color: #9b8d84;"><span id="pdf-size"></span></span>
   </div>`;
+
 dropZone.parentNode.insertBefore(pdfPreviewPanel, dropZone.nextSibling);
 
 // Filter Bar
@@ -301,9 +308,21 @@ dropZone.addEventListener('drop', e => {
 fileInput.onchange = e => { const f = e.target.files[0]; if (f) handleFile(f); };
 
 async function handleFile(file) {
-  if (file.size > 5 * 1024 * 1024) { showToast('El archivo supera los 5MB','error'); return; }
+  if (file.size > 5 * 1024 * 1024) { 
+    showToast('El archivo supera los 5MB', 'error'); 
+    return; 
+  }
+  
   lastFile = file;
-  showToast(`📄 ${file.name} cargado`,'success');
+  showToast(`📄 ${file.name} cargado`, 'success');
+
+  // --- NUEVA LÓGICA: Mostrar el botón de análisis al cargar ---
+  const btnAts = document.getElementById('go-to-ats');
+  if (btnAts) {
+    btnAts.style.display = 'flex';
+    // Opcional: añadimos una pequeña animación de entrada
+    btnAts.classList.add('animate-up'); 
+  }
 
   // Tres procesos en paralelo: preview PDF, análisis de roles, extracción para ATS
   renderPdfPreview(file).catch(() => {});
@@ -788,3 +807,14 @@ function buildFallbackLinks(title, location) {
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+document.addEventListener('click', (e) => {
+  // Verificamos si se hizo clic en el botón o en cualquiera de sus hijos (como el emoji)
+  const btn = e.target.closest('#go-to-ats');
+  if (btn) {
+    const target = document.getElementById('ats-results-content');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+});
