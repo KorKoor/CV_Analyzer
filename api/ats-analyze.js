@@ -19,10 +19,9 @@ function getCacheKey(cvText) {
 
 // ── Modelos en orden — si uno falla por rate limit prueba el siguiente ──
 const MODELS = [
+  'gemini-2.5-flash',
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-flash-8b',
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
