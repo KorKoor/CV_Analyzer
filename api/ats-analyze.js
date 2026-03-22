@@ -94,7 +94,7 @@ async function callGemini(apiKey, model, cvText, fileName) {
           contents: [{ parts: [{ text: buildPrompt(cvText) }] }],
           generationConfig: {
             temperature:      0.1,
-            maxOutputTokens:  1200,
+            maxOutputTokens:  4096,
             candidateCount:   1,
           },
         }),
