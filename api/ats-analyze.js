@@ -13,7 +13,7 @@ function getCacheKey(cvText) {
   return `ats_${hash}`;
 }
 
-const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const MODELS = ['gemini-2.0-flash-lite', 'gemini-2.0-flash'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 export default async function handler(req, res) {
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     .replace(/\s{3,}/g, '\n')
     .replace(/[^\S\n]+/g, ' ')
     .trim()
-    .substring(0, 1500); // reducido al mínimo // reducido para dar espacio al output
+    .substring(0, 1200); // reducido al mínimo // reducido para dar espacio al output
 
   let lastError = null;
 
@@ -92,7 +92,7 @@ async function callGemini(apiKey, model, cvText, fileName) {
           contents: [{ parts: [{ text: buildPrompt(cvText, fileName) }] }],
           generationConfig: {
             temperature:      0.1,
-            maxOutputTokens:  2000,
+            maxOutputTokens:  1500,
             candidateCount:   1,
             responseMimeType: 'application/json',
           },
