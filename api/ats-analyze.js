@@ -13,7 +13,7 @@ function getCacheKey(cvText) {
   return `ats_${hash}`;
 }
 
-const MODELS = ['gemini-2.0-flash-lite', 'gemini-2.0-flash'];
+const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 export default async function handler(req, res) {
@@ -92,7 +92,7 @@ async function callGemini(apiKey, model, cvText, fileName) {
           contents: [{ parts: [{ text: buildPrompt(cvText, fileName) }] }],
           generationConfig: {
             temperature:      0.1,
-            maxOutputTokens:  1500,
+            maxOutputTokens:  800,
             candidateCount:   1,
             responseMimeType: 'application/json',
           },
@@ -152,11 +152,5 @@ async function callGemini(apiKey, model, cvText, fileName) {
 }
 
 function buildPrompt(cvText, fileName) {
-  return `Analiza el CV. Responde SOLO JSON compacto. Sin espacios extra. Sin saltos de linea innecesarios. Maximo 8 palabras por campo de texto. En español.
-
-CV:
-${cvText}
-
-RESPONDE EXACTAMENTE ESTE JSON SIN MODIFICAR ESTRUCTURA, solo reemplaza los valores:
-{"score":0,"scoreLabel":"","scoreSummary":"max 20 palabras","quickWins":["","",""],"categories":[{"name":"Contacto","icon":"📋","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Experiencia","icon":"💼","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Educacion","icon":"🎓","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Habilidades","icon":"🔑","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Logros","icon":"📊","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Formato ATS","icon":"🤖","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]}],"suggestions":[{"priority":"critical","icon":"🚨","title":"max 5 palabras","description":"max 10 palabras"},{"priority":"critical","icon":"📝","title":"max 5 palabras","description":"max 10 palabras"},{"priority":"important","icon":"⚡","title":"max 5 palabras","description":"max 10 palabras"},{"priority":"important","icon":"📈","title":"max 5 palabras","description":"max 10 palabras"},{"priority":"nice","icon":"✨","title":"max 5 palabras","description":"max 10 palabras"}],"keywords":{"present":["","",""],"missing":["","",""],"suggested":["","",""]},"salaryInsight":{"estimatedRange":"$XX,000-$XX,000 MXN","marketPosition":"Junior|Mid|Senior","basis":"max 8 palabras"}}`;
+  return `CV a analizar:\n${cvText}\n\nResponde SOLO este JSON, sin texto extra, reemplazando valores con análisis real del CV (español, máx 8 palabras por campo de texto):\n{"score":0,"scoreLabel":"","scoreSummary":"","quickWins":["","",""],"categories":[{"name":"Experiencia","icon":"💼","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Habilidades","icon":"🔑","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Educacion","icon":"🎓","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Formato ATS","icon":"🤖","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]}],"suggestions":[{"priority":"critical","icon":"🚨","title":"","description":""},{"priority":"critical","icon":"📝","title":"","description":""},{"priority":"important","icon":"⚡","title":"","description":""},{"priority":"nice","icon":"✨","title":"","description":""}],"keywords":{"present":["","","",""],"missing":["","","",""],"suggested":["","","",""]},"salaryInsight":{"estimatedRange":"","marketPosition":"","basis":""}}`;
 }
