@@ -183,39 +183,62 @@ SALARY_BASIS:justificación corta`;
 }
 
 function parseTextResponse(text) {
+  // Intentar parsear JSON truncado caracter por caracter desde el final
+  try {
+    let clean = text.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
+    const start = clean.indexOf('{');
+    if (start >= 0) {
+      clean = clean.substring(start);
+      for (let end = clean.length; end > 10; end--) {
+        if (clean[end-1] === '}') {
+          try {
+            const d = JSON.parse(clean.substring(0, end));
+            return {
+              score:        d.score || d.SCORE || 50,
+              scoreLabel:   d.scoreLabel || d.LABEL || 'Analisis completado',
+              scoreSummary: d.scoreSummary || d.SUMMARY || '',
+              quickWins:    d.quickWins || d.WINS || [],
+              categories:   d.categories || [],
+              suggestions:  d.suggestions || [],
+              keywords:     d.keywords || { present:[], missing:[], suggested:[] },
+              salaryInsight: d.salaryInsight || { estimatedRange:'', marketPosition:'Mid', basis:'' },
+              atsCompatibility: { score:0, issues:[], passed:[] },
+            };
+          } catch(e) { continue; }
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Fallback CLAVE:VALOR
   const lines = text.split('\n').filter(l => l.includes(':'));
   const get = (key) => {
-    const line = lines.find(l => l.startsWith(key + ':'));
-    return line ? line.substring(key.length + 1).trim() : '';
+    const line = lines.find(l => l.trim().startsWith(key + ':'));
+    return line ? line.substring(line.indexOf(':') + 1).trim() : '';
   };
-
   return {
-    score:      parseInt(get('SCORE')) || 50,
-    scoreLabel: get('LABEL') || 'Análisis completado',
+    score:        parseInt(get('SCORE')) || 50,
+    scoreLabel:   get('LABEL') || 'Analisis completado',
     scoreSummary: get('SUMMARY') || '',
-    quickWins:  [get('WIN1'), get('WIN2'), get('WIN3')].filter(Boolean),
+    quickWins:    [get('WIN1'), get('WIN2'), get('WIN3')].filter(Boolean),
     categories: [
-      { name: 'Experiencia',  icon: '💼', score: 0, items: [{ status: 'pass', text: get('EXP_PASS') }, { status: 'warn', text: get('EXP_WARN') }] },
-      { name: 'Habilidades',  icon: '🔑', score: 0, items: [{ status: 'pass', text: get('SKILL_PASS') }, { status: 'warn', text: get('SKILL_WARN') }] },
-      { name: 'Educación',    icon: '🎓', score: 0, items: [{ status: 'pass', text: get('EDU_PASS') }, { status: 'warn', text: get('EDU_WARN') }] },
-      { name: 'Formato ATS',  icon: '🤖', score: 0, items: [{ status: 'pass', text: get('ATS_PASS') }, { status: 'warn', text: get('ATS_WARN') }] },
+      { name:'Experiencia', icon:'💼', score:0, items:[{status:'pass',text:get('EXP_PASS')},{status:'warn',text:get('EXP_WARN')}]},
+      { name:'Habilidades', icon:'🔑', score:0, items:[{status:'pass',text:get('SKILL_PASS')},{status:'warn',text:get('SKILL_WARN')}]},
+      { name:'Educacion',   icon:'🎓', score:0, items:[{status:'pass',text:get('EDU_PASS')},{status:'warn',text:get('EDU_WARN')}]},
+      { name:'Formato ATS', icon:'🤖', score:0, items:[{status:'pass',text:get('ATS_PASS')},{status:'warn',text:get('ATS_WARN')}]},
     ],
     suggestions: [
-      { priority: 'critical',  icon: '🚨', title: get('SUG1_TITLE'), description: get('SUG1_DESC') },
-      { priority: 'critical',  icon: '📝', title: get('SUG2_TITLE'), description: get('SUG2_DESC') },
-      { priority: 'important', icon: '⚡', title: get('SUG3_TITLE'), description: get('SUG3_DESC') },
-      { priority: 'nice',      icon: '✨', title: get('SUG4_TITLE'), description: get('SUG4_DESC') },
+      {priority:'critical', icon:'🚨', title:get('SUG1_TITLE'), description:get('SUG1_DESC')},
+      {priority:'critical', icon:'📝', title:get('SUG2_TITLE'), description:get('SUG2_DESC')},
+      {priority:'important',icon:'⚡', title:get('SUG3_TITLE'), description:get('SUG3_DESC')},
+      {priority:'nice',     icon:'✨', title:get('SUG4_TITLE'), description:get('SUG4_DESC')},
     ].filter(s => s.title),
     keywords: {
-      present:   get('KW_PRESENT').split(',').map(k => k.trim()).filter(Boolean),
-      missing:   get('KW_MISSING').split(',').map(k => k.trim()).filter(Boolean),
-      suggested: get('KW_SUGGEST').split(',').map(k => k.trim()).filter(Boolean),
+      present:   get('KW_PRESENT').split(',').map(k=>k.trim()).filter(Boolean),
+      missing:   get('KW_MISSING').split(',').map(k=>k.trim()).filter(Boolean),
+      suggested: get('KW_SUGGEST').split(',').map(k=>k.trim()).filter(Boolean),
     },
-    salaryInsight: {
-      estimatedRange:  get('SALARY'),
-      marketPosition:  get('LEVEL'),
-      basis:           get('SALARY_BASIS'),
-    },
-    atsCompatibility: { score: 0, issues: [], passed: [] },
+    salaryInsight: { estimatedRange:get('SALARY'), marketPosition:get('LEVEL'), basis:get('SALARY_BASIS') },
+    atsCompatibility: { score:0, issues:[], passed:[] },
   };
 }
