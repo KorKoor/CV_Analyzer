@@ -1,4 +1,3 @@
-// api/ats-analyze.js
 export const config = { maxDuration: 60 };
 
 const analysisCache = new Map();
@@ -20,8 +19,9 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST')   return res.status(405).json({ error: 'Método no permitido' });
+  if (req.method !== 'POST')    return res.status(405).json({ error: 'Método no permitido' });
 
   let body = req.body;
   if (!body || typeof body === 'string') {
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     .replace(/\s{3,}/g, '\n')
     .replace(/[^\S\n]+/g, ' ')
     .trim()
-    .substring(0, 800); // reducido al mínimo // reducido para dar espacio al output
+    .substring(0, 800);
 
   let lastError = null;
 
@@ -57,7 +57,9 @@ export default async function handler(req, res) {
       const result = await callGemini(apiKey, model, cleanCV, fileName);
       if (result._error) {
         if (result._status === 429 || result._status === 404) {
-          lastError = result; await sleep(300); continue;
+          lastError = result; 
+          await sleep(300); 
+          continue;
         }
         return res.status(502).json({ error: result._error });
       }
@@ -94,7 +96,6 @@ async function callGemini(apiKey, model, cvText, fileName) {
             temperature:      0.1,
             maxOutputTokens:  1200,
             candidateCount:   1,
-            
           },
         }),
       }
@@ -119,14 +120,9 @@ async function callGemini(apiKey, model, cvText, fileName) {
       return { _error: `Respuesta vacía de Gemini (${reason})` };
     }
 
-    console.log('Raw preview:', rawText.substring(0, 100));
-
     const analysis = parseTextResponse(rawText);
-    if (!analysis.scoreSummary && !analysis.quickWins.length) {
-      console.error('PARSE FAILED:', rawText.substring(0, 300));
-      return { _error: 'Respuesta inválida de Gemini — intenta de nuevo' };
-    }
-
+    
+    // Validaciones de seguridad para evitar fallos en el frontend
     if (typeof analysis.score !== 'number') analysis.score = 50;
     if (!analysis.scoreLabel)     analysis.scoreLabel = 'Análisis completado';
     if (!analysis.scoreSummary)   analysis.scoreSummary = 'Análisis completado.';
@@ -158,12 +154,16 @@ SUMMARY:resumen en máximo 15 palabras
 WIN1:fortaleza corta
 WIN2:fortaleza corta
 WIN3:fortaleza corta
+EXP_SCORE:número del 0 al 100
 EXP_PASS:observación positiva experiencia
 EXP_WARN:área de mejora experiencia
+SKILL_SCORE:número del 0 al 100
 SKILL_PASS:observación positiva habilidades
 SKILL_WARN:área de mejora habilidades
+EDU_SCORE:número del 0 al 100
 EDU_PASS:observación positiva educación
 EDU_WARN:área de mejora educación
+ATS_SCORE:número del 0 al 100
 ATS_PASS:observación positiva formato
 ATS_WARN:problema de formato ATS
 SUG1_TITLE:título crítico corto
@@ -183,49 +183,32 @@ SALARY_BASIS:justificación corta`;
 }
 
 function parseTextResponse(text) {
-  // Intentar parsear JSON truncado caracter por caracter desde el final
-  try {
-    let clean = text.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
-    const start = clean.indexOf('{');
-    if (start >= 0) {
-      clean = clean.substring(start);
-      for (let end = clean.length; end > 10; end--) {
-        if (clean[end-1] === '}') {
-          try {
-            const d = JSON.parse(clean.substring(0, end));
-            return {
-              score:        d.score || d.SCORE || 50,
-              scoreLabel:   d.scoreLabel || d.LABEL || 'Analisis completado',
-              scoreSummary: d.scoreSummary || d.SUMMARY || '',
-              quickWins:    d.quickWins || d.WINS || [],
-              categories:   d.categories || [],
-              suggestions:  d.suggestions || [],
-              keywords:     d.keywords || { present:[], missing:[], suggested:[] },
-              salaryInsight: d.salaryInsight || { estimatedRange:'', marketPosition:'Mid', basis:'' },
-              atsCompatibility: { score:0, issues:[], passed:[] },
-            };
-          } catch(e) { continue; }
-        }
-      }
-    }
-  } catch(e) {}
-
-  // Fallback CLAVE:VALOR
-  const lines = text.split('\n').filter(l => l.includes(':'));
+  // Limpieza agresiva de Markdown para evitar fallos de lectura
+  const cleanText = text.replace(/\*/g, '').replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim(); 
+  const lines = cleanText.split('\n').filter(l => l.includes(':'));
+  
   const get = (key) => {
-    const line = lines.find(l => l.trim().startsWith(key + ':'));
-    return line ? line.substring(line.indexOf(':') + 1).trim() : '';
+    const line = lines.find(l => l.trim().toUpperCase().startsWith(key.toUpperCase()));
+    if (!line) return '';
+    return line.substring(line.indexOf(':') + 1).trim();
   };
+
+  // Función de seguridad para parsear enteros sin devolver NaN
+  const parseIntSafe = (val, fallback = 0) => {
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) ? fallback : parsed;
+  };
+
   return {
-    score:        parseInt(get('SCORE')) || 50,
-    scoreLabel:   get('LABEL') || 'Analisis completado',
+    score:        parseIntSafe(get('SCORE'), 50),
+    scoreLabel:   get('LABEL') || 'Análisis completado',
     scoreSummary: get('SUMMARY') || '',
     quickWins:    [get('WIN1'), get('WIN2'), get('WIN3')].filter(Boolean),
     categories: [
-      { name:'Experiencia', icon:'💼', score:0, items:[{status:'pass',text:get('EXP_PASS')},{status:'warn',text:get('EXP_WARN')}]},
-      { name:'Habilidades', icon:'🔑', score:0, items:[{status:'pass',text:get('SKILL_PASS')},{status:'warn',text:get('SKILL_WARN')}]},
-      { name:'Educacion',   icon:'🎓', score:0, items:[{status:'pass',text:get('EDU_PASS')},{status:'warn',text:get('EDU_WARN')}]},
-      { name:'Formato ATS', icon:'🤖', score:0, items:[{status:'pass',text:get('ATS_PASS')},{status:'warn',text:get('ATS_WARN')}]},
+      { name:'Experiencia', icon:'💼', score: parseIntSafe(get('EXP_SCORE'), 0), items:[{status:'pass',text:get('EXP_PASS')},{status:'warn',text:get('EXP_WARN')}]},
+      { name:'Habilidades', icon:'🔑', score: parseIntSafe(get('SKILL_SCORE'), 0), items:[{status:'pass',text:get('SKILL_PASS')},{status:'warn',text:get('SKILL_WARN')}]},
+      { name:'Educacion',   icon:'🎓', score: parseIntSafe(get('EDU_SCORE'), 0), items:[{status:'pass',text:get('EDU_PASS')},{status:'warn',text:get('EDU_WARN')}]},
+      { name:'Formato ATS', icon:'🤖', score: parseIntSafe(get('ATS_SCORE'), 0), items:[{status:'pass',text:get('ATS_PASS')},{status:'warn',text:get('ATS_WARN')}]},
     ],
     suggestions: [
       {priority:'critical', icon:'🚨', title:get('SUG1_TITLE'), description:get('SUG1_DESC')},
@@ -238,7 +221,11 @@ function parseTextResponse(text) {
       missing:   get('KW_MISSING').split(',').map(k=>k.trim()).filter(Boolean),
       suggested: get('KW_SUGGEST').split(',').map(k=>k.trim()).filter(Boolean),
     },
-    salaryInsight: { estimatedRange:get('SALARY'), marketPosition:get('LEVEL'), basis:get('SALARY_BASIS') },
+    salaryInsight: { 
+      estimatedRange: get('SALARY'), 
+      marketPosition: get('LEVEL'), 
+      basis: get('SALARY_BASIS') 
+    },
     atsCompatibility: { score:0, issues:[], passed:[] },
   };
 }
