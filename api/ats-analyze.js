@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     .replace(/\s{3,}/g, '\n')
     .replace(/[^\S\n]+/g, ' ')
     .trim()
-    .substring(0, 2000); // reducido para dar espacio al output
+    .substring(0, 1500); // reducido al mínimo // reducido para dar espacio al output
 
   let lastError = null;
 
@@ -92,7 +92,7 @@ async function callGemini(apiKey, model, cvText, fileName) {
           contents: [{ parts: [{ text: buildPrompt(cvText, fileName) }] }],
           generationConfig: {
             temperature:      0.1,
-            maxOutputTokens:  4096,
+            maxOutputTokens:  2000,
             candidateCount:   1,
             responseMimeType: 'application/json',
           },
@@ -152,13 +152,11 @@ async function callGemini(apiKey, model, cvText, fileName) {
 }
 
 function buildPrompt(cvText, fileName) {
-  return `Analiza el CV y responde SOLO JSON. Sin texto extra. En español.
+  return `Analiza el CV. Responde SOLO JSON compacto. Sin espacios extra. Sin saltos de linea innecesarios. Maximo 8 palabras por campo de texto. En español.
 
 CV:
 ${cvText}
 
-JSON (2 items por categoría, descripciones cortas de max 15 palabras):
-{"score":0,"scoreLabel":"","scoreSummary":"","quickWins":["","",""],"categories":[{"name":"Contacto","icon":"📋","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Experiencia","icon":"💼","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Educacion","icon":"🎓","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Habilidades","icon":"🔑","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Logros","icon":"📊","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Formato ATS","icon":"🤖","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]}],"suggestions":[{"priority":"critical","icon":"🚨","title":"","description":""},{"priority":"critical","icon":"📝","title":"","description":""},{"priority":"important","icon":"⚡","title":"","description":""},{"priority":"important","icon":"📈","title":"","description":""},{"priority":"nice","icon":"✨","title":"","description":""}],"keywords":{"present":["","",""],"missing":["","",""],"suggested":["","",""]},"salaryInsight":{"estimatedRange":"","marketPosition":"","basis":""}}
-
-Score: 0-40 grave, 41-60 promedio, 61-75 bueno, 76-90 solido, 91+ excepcional.`;
+RESPONDE EXACTAMENTE ESTE JSON SIN MODIFICAR ESTRUCTURA, solo reemplaza los valores:
+{"score":0,"scoreLabel":"","scoreSummary":"max 20 palabras","quickWins":["","",""],"categories":[{"name":"Contacto","icon":"📋","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Experiencia","icon":"💼","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Educacion","icon":"🎓","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Habilidades","icon":"🔑","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Logros","icon":"📊","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]},{"name":"Formato ATS","icon":"🤖","score":0,"items":[{"status":"pass","text":"max 8 palabras"},{"status":"warn","text":"max 8 palabras"}]}],"suggestions":[{"priority":"critical","icon":"🚨","title":"max 5 palabras","description":"max 10 palabras"},{"priority":"critical","icon":"📝","title":"max 5 palabras","description":"max 10 palabras"},{"priority":"important","icon":"⚡","title":"max 5 palabras","description":"max 10 palabras"},{"priority":"important","icon":"📈","title":"max 5 palabras","description":"max 10 palabras"},{"priority":"nice","icon":"✨","title":"max 5 palabras","description":"max 10 palabras"}],"keywords":{"present":["","",""],"missing":["","",""],"suggested":["","",""]},"salaryInsight":{"estimatedRange":"$XX,000-$XX,000 MXN","marketPosition":"Junior|Mid|Senior","basis":"max 8 palabras"}}`;
 }
