@@ -1,5 +1,6 @@
 import { WebPdfRepository } from '../data/WebPdfRepository.js';
 import { AnalyzeResume }    from '../core/use-cases/AnalyzeResume.js';
+import { createATSPanel, enableATSPanel, extractTextFromPDF } from './ats-analyzer.js';
 
 const repo    = new WebPdfRepository();
 const useCase = new AnalyzeResume(repo);
@@ -41,7 +42,6 @@ const PORTAL_META = {
   googleJobs:   { label: "Google Jobs"  },
 };
 
-// Keywords que se agregan al título para filtrar por seniority en portales
 const SENIORITY_KEYWORDS = {
   all:    '',
   jr:     'Junior',
@@ -49,7 +49,6 @@ const SENIORITY_KEYWORDS = {
   senior: 'Senior',
 };
 
-// %= badges de compatibilidad
 const COMPAT_LEVELS = [
   { min: 80, label: '🔥 Excelente match', color: 'bg-emerald-500 text-white' },
   { min: 60, label: '✅ Buen match',       color: 'bg-emerald-100 text-emerald-700' },
@@ -63,160 +62,98 @@ const COMPAT_LEVELS = [
 const style = document.createElement('style');
 style.textContent = `
   #pdf-preview-panel {
-    display: none;
-    background: white;
-    border: 1px solid #e8e2de;
-    border-radius: 1.5rem;
-    overflow: hidden;
-    box-shadow: 0 4px 24px rgba(0,0,0,.06);
+    display: none; background: white; border: 1px solid #e8e2de;
+    border-radius: 1.5rem; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,.06);
   }
   #pdf-preview-panel.visible { display: block; }
   .pdf-preview-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: .75rem 1.25rem; background: #faf9f8;
-    border-bottom: 1px solid #f0ece8;
+    padding: .75rem 1.25rem; background: #faf9f8; border-bottom: 1px solid #f0ece8;
   }
   .pdf-preview-header h3 {
-    font-size: .75rem; font-weight: 800;
-    text-transform: uppercase; letter-spacing: .12em; color: #6b5d52;
+    font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: #6b5d52;
   }
   #pdf-canvas-container {
     max-height: 320px; overflow-y: auto; background: #f5f3f0;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 1rem; gap: .75rem;
+    display: flex; flex-direction: column; align-items: center; padding: 1rem; gap: .75rem;
   }
-  #pdf-canvas-container canvas {
-    width: 100%; max-width: 480px; border-radius: .75rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,.12);
-  }
+  #pdf-canvas-container canvas { width: 100%; max-width: 480px; border-radius: .75rem; box-shadow: 0 2px 12px rgba(0,0,0,.12); }
   .pdf-page-nav {
-    display: flex; align-items: center; gap: .75rem;
-    padding: .5rem 1.25rem; background: #faf9f8;
-    border-top: 1px solid #f0ece8; font-size: .7rem; font-weight: 700; color: #6b5d52;
+    display: flex; align-items: center; gap: .75rem; padding: .5rem 1.25rem;
+    background: #faf9f8; border-top: 1px solid #f0ece8; font-size: .7rem; font-weight: 700; color: #6b5d52;
   }
   .pdf-nav-btn {
     width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
-    border-radius: .5rem; border: 1px solid #e8e2de; background: white;
-    cursor: pointer; font-size: .9rem; transition: all .15s;
+    border-radius: .5rem; border: 1px solid #e8e2de; background: white; cursor: pointer; font-size: .9rem; transition: all .15s;
   }
   .pdf-nav-btn:hover { background: #00875e; color: white; border-color: #00875e; }
   .pdf-nav-btn:disabled { opacity: .3; cursor: not-allowed; }
 
-  /* ── Filter Bar ── */
   #filter-bar {
     display: none; gap: .75rem; flex-wrap: wrap; align-items: center;
     padding: 1rem 1.25rem; background: white; border: 1px solid #e8e2de;
     border-radius: 1.5rem; margin-bottom: 1.5rem;
   }
   #filter-bar.visible { display: flex; }
-  .filter-row {
-    display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; width: 100%;
-  }
-  .filter-label {
-    font-size: .65rem; font-weight: 800; text-transform: uppercase;
-    letter-spacing: .12em; color: #9b8d84; white-space: nowrap;
-  }
-  .filter-divider {
-    width: 100%; height: 1px; background: #f0ece8; margin: .25rem 0;
-  }
+  .filter-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; width: 100%; }
+  .filter-label { font-size: .65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: #9b8d84; white-space: nowrap; }
+  .filter-divider { width: 100%; height: 1px; background: #f0ece8; margin: .25rem 0; }
   .filter-chip {
-    font-size: .7rem; font-weight: 700; padding: .3rem .8rem;
-    border-radius: 99px; border: 1.5px solid #e8e2de;
-    background: white; color: #6b5d52; cursor: pointer;
-    transition: all .15s; white-space: nowrap;
+    font-size: .7rem; font-weight: 700; padding: .3rem .8rem; border-radius: 99px;
+    border: 1.5px solid #e8e2de; background: white; color: #6b5d52; cursor: pointer; transition: all .15s; white-space: nowrap;
   }
   .filter-chip:hover  { border-color: #00875e; color: #00875e; }
   .filter-chip.active { background: #00875e; color: white; border-color: #00875e; }
-
-  /* Seniority chips con colores */
   .filter-chip[data-value="jr"].active    { background: #3b82f6; border-color: #3b82f6; }
   .filter-chip[data-value="mid"].active   { background: #f59e0b; border-color: #f59e0b; }
   .filter-chip[data-value="senior"].active{ background: #8b5cf6; border-color: #8b5cf6; }
-  .filter-chip[data-value="jr"]:hover    { border-color: #3b82f6; color: #3b82f6; }
-  .filter-chip[data-value="mid"]:hover   { border-color: #f59e0b; color: #f59e0b; }
-  .filter-chip[data-value="senior"]:hover{ border-color: #8b5cf6; color: #8b5cf6; }
-
+  .filter-chip[data-value="jr"]:hover     { border-color: #3b82f6; color: #3b82f6; }
+  .filter-chip[data-value="mid"]:hover    { border-color: #f59e0b; color: #f59e0b; }
+  .filter-chip[data-value="senior"]:hover { border-color: #8b5cf6; color: #8b5cf6; }
   .filter-search {
     flex: 1; min-width: 160px; padding: .4rem .9rem; border-radius: 99px;
-    border: 1.5px solid #e8e2de; font-size: .75rem; font-family: inherit;
-    outline: none; transition: border-color .15s; color: #2d241e;
+    border: 1.5px solid #e8e2de; font-size: .75rem; font-family: inherit; outline: none; transition: border-color .15s; color: #2d241e;
   }
   .filter-search:focus { border-color: #00875e; }
   .filter-select {
     padding: .35rem .8rem; border-radius: 99px; border: 1.5px solid #e8e2de;
-    font-size: .7rem; font-weight: 700; font-family: inherit;
-    color: #6b5d52; background: white; cursor: pointer; outline: none;
+    font-size: .7rem; font-weight: 700; font-family: inherit; color: #6b5d52; background: white; cursor: pointer; outline: none;
   }
   .filter-select:focus { border-color: #00875e; }
-  .filter-results-count {
-    margin-left: auto; font-size: .65rem; font-weight: 700;
-    color: #9b8d84; white-space: nowrap;
-  }
+  .filter-results-count { margin-left: auto; font-size: .65rem; font-weight: 700; color: #9b8d84; white-space: nowrap; }
 
-  /* ── Compat badge ── */
-  .compat-badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: .65rem; font-weight: 800; padding: 3px 10px;
-    border-radius: 99px; white-space: nowrap;
-  }
-  .compat-bar-bg {
-    width: 100%; height: 4px; background: #f0ece8;
-    border-radius: 99px; overflow: hidden; margin-top: 4px;
-  }
-  .compat-bar-fill {
-    height: 100%; border-radius: 99px;
-    background: linear-gradient(90deg, #00875e, #34d399);
-    transition: width 1s cubic-bezier(.4,0,.2,1);
-  }
+  .compat-badge { display: inline-flex; align-items: center; gap: 4px; font-size: .65rem; font-weight: 800; padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
+  .compat-bar-bg { width: 100%; height: 4px; background: #f0ece8; border-radius: 99px; overflow: hidden; margin-top: 4px; }
+  .compat-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg,#00875e,#34d399); transition: width 1s cubic-bezier(.4,0,.2,1); }
 
-  /* ── Seniority indicator on card ── */
-  .seniority-tag {
-    font-size: .6rem; font-weight: 800; text-transform: uppercase;
-    letter-spacing: .1em; padding: 2px 8px; border-radius: 99px;
-    border: 1.5px solid currentColor;
-  }
+  .seniority-tag { font-size: .6rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; padding: 2px 8px; border-radius: 99px; border: 1.5px solid currentColor; }
   .seniority-tag.jr     { color: #3b82f6; border-color: #bfdbfe; background: #eff6ff; }
   .seniority-tag.mid    { color: #f59e0b; border-color: #fde68a; background: #fffbeb; }
   .seniority-tag.senior { color: #8b5cf6; border-color: #ddd6fe; background: #f5f3ff; }
 
-  /* ── Card ── */
   .skill-card { position: relative; }
   .card-bookmark {
-    position: absolute; top: 1rem; right: 1rem;
-    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    position: absolute; top: 1rem; right: 1rem; width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
     border-radius: .5rem; border: 1px solid #e8e2de; background: white;
     cursor: pointer; font-size: .9rem; transition: all .15s; z-index: 2;
   }
   .card-bookmark:hover { background: #fff8f0; border-color: #f59e0b; }
   .card-bookmark.saved { background: #fff8f0; border-color: #f59e0b; }
   .share-btn {
-    display: inline-flex; align-items: center; gap: .35rem;
-    font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
-    color: #9b8d84; cursor: pointer; padding: .3rem .6rem; border-radius: .5rem;
-    transition: all .15s; border: none; background: none;
+    display: inline-flex; align-items: center; gap: .35rem; font-size: .65rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em; color: #9b8d84; cursor: pointer;
+    padding: .3rem .6rem; border-radius: .5rem; transition: all .15s; border: none; background: none;
   }
   .share-btn:hover { color: #00875e; background: #f0faf6; }
-  .no-results {
-    grid-column: 1 / -1; text-align: center; padding: 3rem;
-    color: #9b8d84; font-size: .85rem;
-  }
+  .no-results { grid-column: 1 / -1; text-align: center; padding: 3rem; color: #9b8d84; font-size: .85rem; }
 
-  /* ── Toast ── */
-  #toast-container {
-    position: fixed; bottom: 1.5rem; right: 1.5rem;
-    display: flex; flex-direction: column; gap: .5rem; z-index: 9999;
-  }
-  .toast {
-    padding: .75rem 1.25rem; background: #2d241e; color: white;
-    border-radius: 1rem; font-size: .75rem; font-weight: 600; font-family: inherit;
-    box-shadow: 0 4px 20px rgba(0,0,0,.2); animation: toastIn .25s ease; max-width: 280px;
-  }
+  #toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; display: flex; flex-direction: column; gap: .5rem; z-index: 9999; }
+  .toast { padding: .75rem 1.25rem; background: #2d241e; color: white; border-radius: 1rem; font-size: .75rem; font-weight: 600; font-family: inherit; box-shadow: 0 4px 20px rgba(0,0,0,.2); animation: toastIn .25s ease; max-width: 280px; }
   .toast.success { background: #00875e; }
   .toast.error   { background: #dc2626; }
-  @keyframes toastIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+  @keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
   .stats-bar { display: flex; gap: 1.5rem; flex-wrap: wrap; }
   .stat-item { display: flex; flex-direction: column; gap: .15rem; }
   .stat-value { font-size: 1.5rem; font-weight: 900; color: #2d241e; line-height: 1; }
@@ -225,7 +162,7 @@ style.textContent = `
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   .skip-link { position: absolute; top: -40px; left: 0; background: #00875e; color: white; padding: .5rem 1rem; font-size: .8rem; font-weight: 700; z-index: 10000; border-radius: 0 0 .5rem 0; transition: top .2s; }
   .skip-link:focus { top: 0; }
-  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
 `;
 document.head.appendChild(style);
 
@@ -239,13 +176,13 @@ document.body.prepend(skipLink);
 
 const toastContainer = document.createElement('div');
 toastContainer.id = 'toast-container';
-toastContainer.setAttribute('role', 'status'); toastContainer.setAttribute('aria-live', 'polite');
+toastContainer.setAttribute('role','status'); toastContainer.setAttribute('aria-live','polite');
 document.body.appendChild(toastContainer);
 
 // PDF Preview
 const pdfPreviewPanel = document.createElement('div');
 pdfPreviewPanel.id = 'pdf-preview-panel';
-pdfPreviewPanel.setAttribute('aria-label', 'Vista previa del PDF');
+pdfPreviewPanel.setAttribute('aria-label','Vista previa del PDF');
 pdfPreviewPanel.innerHTML = `
   <div class="pdf-preview-header">
     <h3>Vista previa del CV</h3>
@@ -263,17 +200,15 @@ pdfPreviewPanel.innerHTML = `
   </div>`;
 dropZone.parentNode.insertBefore(pdfPreviewPanel, dropZone.nextSibling);
 
-// Filter Bar — con todas las filas
+// Filter Bar
 const filterBar = document.createElement('div');
 filterBar.id = 'filter-bar';
-filterBar.setAttribute('role', 'search');
-filterBar.setAttribute('aria-label', 'Filtros de vacantes');
+filterBar.setAttribute('role','search');
+filterBar.setAttribute('aria-label','Filtros de vacantes');
 filterBar.innerHTML = `
-  <!-- Fila 1: Búsqueda + Skill + Sort -->
   <div class="filter-row">
     <span class="filter-label">Buscar:</span>
-    <input type="search" class="filter-search" id="filter-search"
-           placeholder="Rol, tecnología..." aria-label="Buscar roles" autocomplete="off">
+    <input type="search" class="filter-search" id="filter-search" placeholder="Rol, tecnología..." aria-label="Buscar roles" autocomplete="off">
     <span class="filter-label">Habilidad:</span>
     <select class="filter-select" id="skill-select" aria-label="Filtrar por habilidad del CV">
       <option value="all">Todas las habilidades</option>
@@ -287,10 +222,7 @@ filterBar.innerHTML = `
     </select>
     <span class="filter-results-count" id="filter-count" aria-live="polite"></span>
   </div>
-
   <div class="filter-divider"></div>
-
-  <!-- Fila 2: Modalidad + Seniority -->
   <div class="filter-row">
     <span class="filter-label">Modalidad:</span>
     <div role="group" aria-label="Filtro de modalidad" style="display:flex;gap:.4rem;flex-wrap:wrap;">
@@ -306,9 +238,14 @@ filterBar.innerHTML = `
       <button class="filter-chip" data-filter="seniority" data-value="mid" aria-pressed="false">🟡 Mid</button>
       <button class="filter-chip" data-filter="seniority" data-value="senior" aria-pressed="false">🟣 Senior</button>
     </div>
-  </div>
-`;
+  </div>`;
 matchesGrid.parentNode.insertBefore(filterBar, matchesGrid);
+
+// Panel ATS — se inserta después de los resultados
+const atsPanelWrapper = document.createElement('div');
+atsPanelWrapper.id = 'ats-panel-wrapper';
+matchesGrid.parentNode.appendChild(atsPanelWrapper);
+createATSPanel(atsPanelWrapper);
 
 // ═══════════════════════════════════════════════════════════
 // PDF PREVIEW
@@ -349,24 +286,31 @@ document.getElementById('pdf-close-btn').addEventListener('click', () => pdfPrev
 // UPLOAD EVENTS
 // ═══════════════════════════════════════════════════════════
 locationSelect.onchange = () => { if (lastFile) processFile(lastFile); };
-dropZone.setAttribute('tabindex', '0'); dropZone.setAttribute('role', 'button');
-dropZone.setAttribute('aria-label', 'Subir CV en PDF. Haz clic o arrastra.');
+dropZone.setAttribute('tabindex','0'); dropZone.setAttribute('role','button');
+dropZone.setAttribute('aria-label','Subir CV en PDF. Haz clic o arrastra.');
 dropZone.onclick = () => fileInput.click();
-dropZone.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } };
+dropZone.onkeydown = e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); fileInput.click(); } };
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-kwAccent','bg-emerald-50/20'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-kwAccent','bg-emerald-50/20'));
 dropZone.addEventListener('drop', e => {
   e.preventDefault(); dropZone.classList.remove('border-kwAccent','bg-emerald-50/20');
   const f = e.dataTransfer.files[0];
-  if (f?.type === 'application/pdf') handleFile(f); else showToast('Solo se aceptan PDFs','error');
+  if (f?.type==='application/pdf') handleFile(f); else showToast('Solo se aceptan PDFs','error');
 });
 fileInput.onchange = e => { const f = e.target.files[0]; if (f) handleFile(f); };
 
 async function handleFile(file) {
   if (file.size > 5 * 1024 * 1024) { showToast('El archivo supera los 5MB','error'); return; }
   lastFile = file;
-  showToast(`📄 ${file.name} cargado`, 'success');
+  showToast(`📄 ${file.name} cargado`,'success');
+
+  // Tres procesos en paralelo: preview PDF, análisis de roles, extracción para ATS
   renderPdfPreview(file).catch(() => {});
+
+  extractTextFromPDF(file)
+    .then(text => enableATSPanel(text, file.name))
+    .catch(err => console.warn('ATS text extraction failed:', err));
+
   processFile(file);
 }
 
@@ -384,12 +328,9 @@ async function processFile(file) {
     const result = await useCase.execute(file, location);
     lastResult = result;
 
-    // Calcular compatibilidad para cada match
     const totalSkills = result.matches.length;
     result.matches = result.matches.map((m, i) => ({
       ...m,
-      // Score de compatibilidad: skills del mismo cluster / total skills * 100
-      // Cuanto más arriba en la lista (más score en el parser), mayor compat
       compatPct: Math.min(100, Math.round(((totalSkills - i) / totalSkills) * 100)),
     }));
 
@@ -407,29 +348,18 @@ async function processFile(file) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// POBLAR SKILL FILTER
+// SKILL FILTER
 // ═══════════════════════════════════════════════════════════
 function populateSkillFilter(matches) {
   const select = document.getElementById('skill-select');
   if (!select) return;
-
-  // Limpiar opciones anteriores excepto "Todas"
   select.innerHTML = '<option value="all">Todas las habilidades</option>';
-
-  // Agrupar skills únicas del CV
   const skillsSet = new Set();
-  matches.forEach(m => {
-    if (m.tech) {
-      m.tech.split(',').forEach(s => skillsSet.add(s.trim()));
-    }
-  });
-
-  // Ordenar alfabéticamente y agregar
+  matches.forEach(m => { if (m.tech) m.tech.split(',').forEach(s => skillsSet.add(s.trim())); });
   [...skillsSet].sort().forEach(skill => {
     if (!skill) return;
     const opt = document.createElement('option');
-    opt.value = skill;
-    opt.textContent = skill;
+    opt.value = skill; opt.textContent = skill;
     select.appendChild(opt);
   });
 }
@@ -438,7 +368,6 @@ function populateSkillFilter(matches) {
 // FILTERS SETUP
 // ═══════════════════════════════════════════════════════════
 function setupFilters(result) {
-  // Modalidad
   filterBar.querySelectorAll('[data-filter="modality"]').forEach(chip => {
     chip.addEventListener('click', () => {
       filterBar.querySelectorAll('[data-filter="modality"]').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed','false'); });
@@ -446,33 +375,17 @@ function setupFilters(result) {
       activeFilters.modality = chip.dataset.value; applyFilters();
     });
   });
-
-  // Seniority
   filterBar.querySelectorAll('[data-filter="seniority"]').forEach(chip => {
     chip.addEventListener('click', () => {
       filterBar.querySelectorAll('[data-filter="seniority"]').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed','false'); });
       chip.classList.add('active'); chip.setAttribute('aria-pressed','true');
       activeFilters.seniority = chip.dataset.value;
-      updateSeniorityOnCards(); // actualizar las cards visualmente
-      applyFilters();
+      updateSeniorityOnCards(); applyFilters();
     });
   });
-
-  // Búsqueda
-  document.getElementById('filter-search').addEventListener('input', e => {
-    activeFilters.search = e.target.value.toLowerCase().trim(); applyFilters();
-  });
-
-  // Skill
-  document.getElementById('skill-select').addEventListener('change', e => {
-    activeFilters.skill = e.target.value; applyFilters();
-  });
-
-  // Sort
-  document.getElementById('sort-select').addEventListener('change', e => {
-    activeFilters.sort = e.target.value; applyFilters();
-  });
-
+  document.getElementById('filter-search').addEventListener('input', e => { activeFilters.search = e.target.value.toLowerCase().trim(); applyFilters(); });
+  document.getElementById('skill-select').addEventListener('change', e => { activeFilters.skill = e.target.value; applyFilters(); });
+  document.getElementById('sort-select').addEventListener('change', e => { activeFilters.sort = e.target.value; applyFilters(); });
   updateFilterCount(result.matches.length, result.matches.length);
 }
 
@@ -481,7 +394,6 @@ function setupFilters(result) {
 // ═══════════════════════════════════════════════════════════
 function applyFilters() {
   if (!lastResult) return;
-
   const cards = matchesGrid.querySelectorAll('.skill-card');
   matchesGrid.querySelectorAll('.no-results').forEach(el => el.remove());
   let visible = 0;
@@ -489,36 +401,23 @@ function applyFilters() {
   cards.forEach((card, i) => {
     const match = lastResult.matches[i];
     if (!match) return;
-
-    // Filtro de búsqueda
     const title = (match.jobTitle || '').toLowerCase();
     const tech  = (match.tech || '').toLowerCase();
-    const passSearch = !activeFilters.search ||
-      title.includes(activeFilters.search) || tech.includes(activeFilters.search);
-
-    // Filtro de modalidad
+    const passSearch   = !activeFilters.search || title.includes(activeFilters.search) || tech.includes(activeFilters.search);
     const modalityText = card.querySelector('.modalities-row')?.textContent || '';
-    const passModality = activeFilters.modality === 'all' ||
-      modalityText.includes(activeFilters.modality);
-
-    // Filtro de skill — verifica si la skill seleccionada está en el tech stack del match
-    const passSkill = activeFilters.skill === 'all' ||
-      (match.tech || '').toLowerCase().includes(activeFilters.skill.toLowerCase());
-
+    const passModality = activeFilters.modality === 'all' || modalityText.includes(activeFilters.modality);
+    const passSkill    = activeFilters.skill === 'all' || tech.includes(activeFilters.skill.toLowerCase());
     const show = passSearch && passModality && passSkill;
     card.style.display = show ? '' : 'none';
     card.setAttribute('aria-hidden', show ? 'false' : 'true');
     if (show) visible++;
   });
 
-  // Sort visual (reordenar DOM)
   if (activeFilters.sort !== 'default') {
     const cardsArr = [...matchesGrid.querySelectorAll('.skill-card')].filter(c => c.style.display !== 'none');
     cardsArr.sort((a, b) => {
-      const ai = parseInt(a.id.replace('card-',''));
-      const bi = parseInt(b.id.replace('card-',''));
-      const am = lastResult.matches[ai];
-      const bm = lastResult.matches[bi];
+      const ai = parseInt(a.id.replace('card-','')); const bi = parseInt(b.id.replace('card-',''));
+      const am = lastResult.matches[ai]; const bm = lastResult.matches[bi];
       if (activeFilters.sort === 'compat-desc') return (bm?.compatPct||0) - (am?.compatPct||0);
       if (activeFilters.sort === 'alpha')       return (am?.jobTitle||'').localeCompare(bm?.jobTitle||'');
       if (activeFilters.sort === 'alpha-desc')  return (bm?.jobTitle||'').localeCompare(am?.jobTitle||'');
@@ -535,7 +434,6 @@ function applyFilters() {
     noRes.innerHTML = `<p style="font-size:2rem;margin-bottom:.5rem;">🔍</p><p style="font-weight:700;">Sin resultados</p><p style="font-size:.75rem;opacity:.6;">Intenta con otros términos o cambia los filtros</p>`;
     matchesGrid.appendChild(noRes);
   }
-
   updateFilterCount(visible, lastResult.matches.length);
 }
 
@@ -544,13 +442,11 @@ function updateFilterCount(visible, total) {
   if (el) el.textContent = visible === total ? `${total} roles` : `${visible} de ${total} roles`;
 }
 
-// Actualiza el seniority tag visible en cada card
 function updateSeniorityOnCards() {
   const seniority = activeFilters.seniority;
   matchesGrid.querySelectorAll('.seniority-tag-wrapper').forEach(wrapper => {
     wrapper.innerHTML = seniority === 'all' ? '' : renderSeniorityTag(seniority);
   });
-  // También actualiza el hint de búsqueda debajo de cada card
   matchesGrid.querySelectorAll('.seniority-hint').forEach(el => {
     const keyword = SENIORITY_KEYWORDS[seniority];
     el.textContent = keyword ? `Buscando vacantes "${keyword}"` : '';
@@ -590,7 +486,6 @@ async function enrichCard(title, location, cardId) {
   const portalsSection = card.querySelector('.portals-section');
   if (portalsSection) portalsSection.innerHTML = renderPortalsSkeleton();
 
-  // Agregar keyword de seniority si está activo
   const seniorityKw = SENIORITY_KEYWORDS[activeFilters.seniority] || '';
   const searchTitle = seniorityKw ? `${seniorityKw} ${title}` : title;
 
@@ -661,13 +556,13 @@ function renderResults(result) {
   }
 
   matchesGrid.innerHTML = result.matches.map((m, i) => {
-    const jobTitle  = m.jobTitle || m.tech;
-    const techStack = m.name || m.tech;
-    const cvPreview = (m.preview || 'Buscando vacantes activas...').replace(/[<>]/g, '').trim();
-    const compatPct = m.compatPct || 0;
+    const jobTitle    = m.jobTitle || m.tech;
+    const techStack   = m.name || m.tech;
+    const cvPreview   = (m.preview || 'Buscando vacantes activas...').replace(/[<>]/g,'').trim();
+    const compatPct   = m.compatPct || 0;
     const compatLevel = COMPAT_LEVELS.find(l => compatPct >= l.min) || COMPAT_LEVELS[COMPAT_LEVELS.length - 1];
-    const savedJobs = JSON.parse(localStorage.getItem('kw_saved') || '[]');
-    const isSaved   = savedJobs.includes(jobTitle);
+    const savedJobs   = JSON.parse(localStorage.getItem('kw_saved') || '[]');
+    const isSaved     = savedJobs.includes(jobTitle);
 
     return `
       <article id="card-${i}"
@@ -678,9 +573,9 @@ function renderResults(result) {
                style="animation-delay:${i * 45}ms"
                aria-label="Rol: ${jobTitle}, compatibilidad: ${compatPct}%">
 
-        <button class="card-bookmark ${isSaved ? 'saved' : ''}" data-job="${escHtml(jobTitle)}"
-                aria-label="${isSaved ? 'Quitar de guardados' : 'Guardar rol'}" aria-pressed="${isSaved}">
-          ${isSaved ? '🔖' : '🏷️'}
+        <button class="card-bookmark ${isSaved?'saved':''}" data-job="${escHtml(jobTitle)}"
+                aria-label="${isSaved?'Quitar de guardados':'Guardar rol'}" aria-pressed="${isSaved}">
+          ${isSaved?'🔖':'🏷️'}
         </button>
 
         <div>
@@ -691,7 +586,6 @@ function renderResults(result) {
             </div>
           </div>
 
-          <!-- Compatibilidad -->
           <div class="flex items-center gap-2 mb-2 flex-wrap">
             <span class="compat-badge ${compatLevel.color}">${compatLevel.label} · ${compatPct}%</span>
             <div class="seniority-tag-wrapper"></div>
@@ -700,7 +594,6 @@ function renderResults(result) {
             <div class="compat-bar-fill" style="width:${compatPct}%"></div>
           </div>
 
-          <!-- Location + share -->
           <div class="flex items-center gap-2 mb-2">
             <span class="text-[9px] font-bold py-1 px-3 bg-[#f8f6f4] rounded-full uppercase text-[#6b5d52] border border-kwBorder leading-none">
               📍 ${result.location}
@@ -708,10 +601,8 @@ function renderResults(result) {
             <button class="share-btn" data-job="${escHtml(jobTitle)}">↗ Compartir</button>
           </div>
 
-          <!-- Hint de seniority activo -->
           <p class="seniority-hint text-[10px] text-blue-500 font-semibold mb-1" style="display:none;"></p>
 
-          <!-- Metadatos -->
           <div class="flex flex-wrap items-center gap-2 min-h-[20px] mb-1">
             <span class="vac-count text-[11px] font-semibold text-gray-300 transition-all duration-500" aria-live="polite">Buscando vacantes...</span>
           </div>
@@ -732,21 +623,17 @@ function renderResults(result) {
   matchesGrid.querySelectorAll('.card-bookmark').forEach(btn => btn.addEventListener('click', () => toggleSave(btn)));
   matchesGrid.querySelectorAll('.share-btn').forEach(btn => btn.addEventListener('click', () => shareJob(btn.dataset.job, result.location)));
 
-  // Aplicar seniority actual si hay uno activo
   if (activeFilters.seniority !== 'all') updateSeniorityOnCards();
 }
 
 // ═══════════════════════════════════════════════════════════
-// SENIORITY TAG HTML
+// HELPERS
 // ═══════════════════════════════════════════════════════════
 function renderSeniorityTag(seniority) {
   const labels = { jr: '🔵 Junior', mid: '🟡 Mid-Level', senior: '🟣 Senior' };
-  return `<span class="seniority-tag ${seniority}">${labels[seniority] || ''}</span>`;
+  return `<span class="seniority-tag ${seniority}">${labels[seniority]||''}</span>`;
 }
 
-// ═══════════════════════════════════════════════════════════
-// BOOKMARK / SHARE
-// ═══════════════════════════════════════════════════════════
 function toggleSave(btn) {
   const job = btn.dataset.job;
   const saved = JSON.parse(localStorage.getItem('kw_saved') || '[]');
@@ -758,6 +645,7 @@ function toggleSave(btn) {
   btn.setAttribute('aria-pressed', isSaved ? 'true' : 'false');
   showToast(isSaved ? `✔ "${job}" guardado` : `"${job}" eliminado`);
 }
+
 async function shareJob(jobTitle, location) {
   const url = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(jobTitle)}&location=${encodeURIComponent(location)}&f_TPR=r604800&sortBy=DD`;
   try {
@@ -766,9 +654,6 @@ async function shareJob(jobTitle, location) {
   } catch {}
 }
 
-// ═══════════════════════════════════════════════════════════
-// SKELETON / PORTALS / JOB ROW
-// ═══════════════════════════════════════════════════════════
 function renderPortalsSkeleton() {
   return `<div class="animate-pulse space-y-2" aria-busy="true">
     <div class="flex gap-2"><div class="h-7 w-20 bg-gray-200 rounded-lg"></div><div class="h-7 w-16 bg-gray-100 rounded-lg"></div><div class="h-7 w-14 bg-gray-100 rounded-lg"></div></div>
@@ -873,7 +758,11 @@ function renderLoadingState() {
 }
 
 function announceToScreenReader(message) {
-  const el = document.getElementById('sr-announcer') || (() => { const e = document.createElement('div'); e.id='sr-announcer'; e.className='sr-only'; e.setAttribute('aria-live','assertive'); e.setAttribute('aria-atomic','true'); document.body.appendChild(e); return e; })();
+  const el = document.getElementById('sr-announcer') || (() => {
+    const e = document.createElement('div'); e.id='sr-announcer'; e.className='sr-only';
+    e.setAttribute('aria-live','assertive'); e.setAttribute('aria-atomic','true');
+    document.body.appendChild(e); return e;
+  })();
   el.textContent = ''; setTimeout(() => { el.textContent = message; }, 100);
 }
 
