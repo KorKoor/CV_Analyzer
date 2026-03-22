@@ -1,129 +1,238 @@
 // api/ats-analyze.js
-// Serverless function en Vercel — llama a Gemini 1.5 Flash (gratis)
-// Variable de entorno requerida: GEMINI_API_KEY
+// Serverless function en Vercel — Gemini 1.5 Flash (gratis)
+// Variable requerida: GEMINI_API_KEY (aistudio.google.com/apikey)
+
+// Vercel: aumentar timeout máximo en plan hobby (60s)
+export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+  if (req.method !== 'POST')   return res.status(405).json({ error: 'Método no permitido' });
 
-  const { cvText, fileName } = req.body || {};
+  // ── Validar body ──────────────────────────────────────────
+  let body = req.body;
+  if (!body && req.readable) {
+    // Express puede no parsear el body si falta bodyParser
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { body = {}; }
+  }
+
+  const { cvText, fileName } = body || {};
   if (!cvText?.trim()) return res.status(400).json({ error: 'Falta el texto del CV' });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY no configurada' });
+  if (!apiKey)  return res.status(500).json({ error: 'GEMINI_API_KEY no configurada en Vercel → Settings → Environment Variables' });
 
-  const prompt = buildPrompt(cvText, fileName);
+  // ── Limpiar y truncar texto del CV ────────────────────────
+  const cleanCV = cvText
+    .replace(/\s{3,}/g, '\n')   // colapsar espacios excesivos
+    .replace(/[^\S\n]+/g, ' ')  // espacios múltiples → uno
+    .trim()
+    .substring(0, 4000);        // límite seguro para no exceder tokens
 
   try {
-    const response = await fetch(
+    const controller = new AbortController();
+    const timeout    = setTimeout(() => controller.abort(), 50000); // 50s timeout
+
+    const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal:  controller.signal,
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts: [{ text: buildPrompt(cleanCV, fileName) }] }],
           generationConfig: {
-            temperature:     0.3,
-            maxOutputTokens: 2048,
+            temperature:      0.2,   // más determinístico = JSON más consistente
+            maxOutputTokens:  2048,
             responseMimeType: 'application/json',
+            candidateCount:   1,
           },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ],
         }),
       }
     );
 
-    if (!response.ok) {
-      const err = await response.text();
-      return res.status(502).json({ error: `Gemini error: ${response.status}`, detail: err });
+    clearTimeout(timeout);
+
+    // ── Manejar errores HTTP de Gemini ────────────────────────
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text().catch(() => '');
+      let errDetail = errText;
+      try { errDetail = JSON.parse(errText)?.error?.message || errText; } catch {}
+
+      // Mensajes de error amigables
+      const friendlyErrors = {
+        400: 'API key inválida o request malformado',
+        401: 'API key incorrecta — verifica en aistudio.google.com/apikey',
+        403: 'API key sin permisos — activa la API de Gemini en Google Cloud',
+        429: 'Límite de requests alcanzado — espera 1 minuto e intenta de nuevo',
+        500: 'Error interno de Gemini — intenta de nuevo en unos segundos',
+        503: 'Gemini no disponible temporalmente — intenta de nuevo',
+      };
+
+      return res.status(502).json({
+        error:  friendlyErrors[geminiRes.status] || `Gemini respondió con error ${geminiRes.status}`,
+        detail: errDetail,
+        status: geminiRes.status,
+      });
     }
 
-    const data     = await response.json();
-    const rawText  = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const data = await geminiRes.json();
 
+    // ── Extraer texto de la respuesta ─────────────────────────
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!rawText) {
+      const blockReason = data.candidates?.[0]?.finishReason || data.promptFeedback?.blockReason;
+      return res.status(502).json({
+        error: blockReason
+          ? `Gemini bloqueó la respuesta: ${blockReason}`
+          : 'Gemini devolvió una respuesta vacía',
+      });
+    }
+
+    // ── Parsear JSON ──────────────────────────────────────────
     let analysis;
     try {
-      const clean = rawText.replace(/```json|```/g, '').trim();
+      // Limpiar posibles backticks o texto extra alrededor del JSON
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      const clean     = jsonMatch ? jsonMatch[0] : rawText.replace(/```json|```/g, '').trim();
       analysis = JSON.parse(clean);
-    } catch {
-      return res.status(502).json({ error: 'No se pudo parsear la respuesta de Gemini', raw: rawText });
+    } catch (parseErr) {
+      return res.status(502).json({
+        error: 'Gemini no devolvió JSON válido — intenta de nuevo',
+        raw:   rawText.substring(0, 500),
+      });
+    }
+
+    // ── Validar estructura mínima ─────────────────────────────
+    if (typeof analysis.score !== 'number') {
+      analysis.score = 50;
+    }
+    if (!Array.isArray(analysis.categories)) {
+      analysis.categories = [];
+    }
+    if (!Array.isArray(analysis.suggestions)) {
+      analysis.suggestions = [];
+    }
+    if (!analysis.keywords) {
+      analysis.keywords = { present: [], missing: [], suggested: [] };
     }
 
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json(analysis);
 
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Tiempo de espera agotado — el análisis tardó demasiado, intenta de nuevo' });
+    }
+    return res.status(500).json({ error: `Error interno: ${err.message}` });
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// PROMPT — optimizado para JSON consistente
+// ═══════════════════════════════════════════════════════════
 function buildPrompt(cvText, fileName) {
-  return `Eres un experto en sistemas ATS (Applicant Tracking Systems) y optimización de CVs para el mercado laboral de México y LATAM.
+  return `Eres un experto certificado en sistemas ATS (Applicant Tracking Systems), reclutamiento y optimización de CVs para el mercado laboral de México y LATAM.
 
-Analiza el siguiente CV y responde ÚNICAMENTE con un objeto JSON válido. Sin texto adicional, sin backticks, sin explicaciones fuera del JSON.
+Tu tarea es analizar el CV proporcionado y devolver un objeto JSON con evaluación detallada, honesta y accionable.
 
-CV A ANALIZAR (archivo: ${fileName || 'CV.pdf'}):
+INSTRUCCIONES CRÍTICAS:
+- Responde ÚNICAMENTE con JSON válido. Sin texto antes ni después. Sin backticks. Sin comentarios.
+- Sé ESPECÍFICO al CV analizado. Nunca uses frases genéricas como "agrega más información".
+- El score debe ser HONESTO. Un CV promedio tiene score 45-60. Solo los excepcionales llegan a 85+.
+- Todas las respuestas en ESPAÑOL.
+
+CV A ANALIZAR (${fileName || 'CV.pdf'}):
 """
-${cvText.substring(0, 5000)}
+${cvText}
 """
 
-Responde con este JSON exacto (respeta la estructura):
+RESPONDE CON ESTE JSON (sin modificar la estructura):
 {
-  "score": <número entero del 0 al 100>,
-  "scoreLabel": "<Excelente|Muy bueno|Bueno|Regular|Necesita mejora>",
-  "scoreSummary": "<2-3 oraciones resumiendo el estado del CV de forma honesta>",
-  "quickWins": ["<etiqueta corta de fortaleza 1>", "<etiqueta corta 2>", "<etiqueta corta 3>"],
+  "score": 0,
+  "scoreLabel": "Necesita mejora",
+  "scoreSummary": "descripción honesta de 2-3 oraciones del estado real del CV",
+  "quickWins": ["fortaleza 1", "fortaleza 2", "fortaleza 3"],
   "categories": [
     {
       "name": "Información de Contacto",
       "icon": "📋",
-      "score": <0-100>,
+      "score": 0,
       "items": [
-        { "status": "pass", "text": "<observación positiva específica>" },
-        { "status": "warn", "text": "<observación de mejora específica>" },
-        { "status": "fail", "text": "<problema crítico específico>" }
+        { "status": "pass", "text": "observación positiva específica" },
+        { "status": "warn", "text": "observación de mejora específica" },
+        { "status": "fail", "text": "problema crítico específico" }
       ]
     },
     {
-      "name": "Estructura y Formato",
-      "icon": "📐",
-      "score": <0-100>,
+      "name": "Perfil Profesional",
+      "icon": "👤",
+      "score": 0,
       "items": [
-        { "status": "pass|warn|fail", "text": "<observación específica del CV>" }
+        { "status": "pass", "text": "observación específica" },
+        { "status": "warn", "text": "observación específica" },
+        { "status": "fail", "text": "observación específica" }
       ]
     },
     {
       "name": "Experiencia Laboral",
       "icon": "💼",
-      "score": <0-100>,
+      "score": 0,
       "items": [
-        { "status": "pass|warn|fail", "text": "<observación específica del CV>" }
+        { "status": "pass", "text": "observación específica" },
+        { "status": "warn", "text": "observación específica" },
+        { "status": "fail", "text": "observación específica" }
       ]
     },
     {
-      "name": "Educación",
+      "name": "Educación y Certificaciones",
       "icon": "🎓",
-      "score": <0-100>,
+      "score": 0,
       "items": [
-        { "status": "pass|warn|fail", "text": "<observación específica del CV>" }
+        { "status": "pass", "text": "observación específica" },
+        { "status": "warn", "text": "observación específica" },
+        { "status": "fail", "text": "observación específica" }
       ]
     },
     {
-      "name": "Habilidades y Keywords",
+      "name": "Habilidades Técnicas",
       "icon": "🔑",
-      "score": <0-100>,
+      "score": 0,
       "items": [
-        { "status": "pass|warn|fail", "text": "<observación específica del CV>" }
+        { "status": "pass", "text": "observación específica" },
+        { "status": "warn", "text": "observación específica" },
+        { "status": "fail", "text": "observación específica" }
       ]
     },
     {
       "name": "Logros y Métricas",
       "icon": "📊",
-      "score": <0-100>,
+      "score": 0,
       "items": [
-        { "status": "pass|warn|fail", "text": "<observación específica del CV>" }
+        { "status": "pass", "text": "observación específica" },
+        { "status": "warn", "text": "observación específica" },
+        { "status": "fail", "text": "observación específica" }
+      ]
+    },
+    {
+      "name": "Formato ATS",
+      "icon": "🤖",
+      "score": 0,
+      "items": [
+        { "status": "pass", "text": "observación específica sobre compatibilidad ATS" },
+        { "status": "warn", "text": "observación específica" },
+        { "status": "fail", "text": "observación específica" }
       ]
     }
   ],
@@ -131,67 +240,79 @@ Responde con este JSON exacto (respeta la estructura):
     {
       "priority": "critical",
       "icon": "🚨",
-      "title": "<título corto y accionable>",
-      "description": "<qué hacer exactamente, en 1-2 oraciones>"
+      "title": "título corto accionable",
+      "description": "qué hacer exactamente, cómo hacerlo, por qué importa para ATS"
     },
     {
       "priority": "critical",
       "icon": "📝",
-      "title": "<título>",
-      "description": "<descripción accionable>"
+      "title": "título",
+      "description": "descripción accionable específica"
     },
     {
       "priority": "critical",
-      "icon": "💡",
-      "title": "<título>",
-      "description": "<descripción accionable>"
+      "icon": "🎯",
+      "title": "título",
+      "description": "descripción accionable específica"
     },
     {
       "priority": "important",
       "icon": "⚡",
-      "title": "<título>",
-      "description": "<descripción accionable>"
-    },
-    {
-      "priority": "important",
-      "icon": "🎯",
-      "title": "<título>",
-      "description": "<descripción accionable>"
+      "title": "título",
+      "description": "descripción accionable específica"
     },
     {
       "priority": "important",
       "icon": "📈",
-      "title": "<título>",
-      "description": "<descripción accionable>"
+      "title": "título",
+      "description": "descripción accionable específica"
+    },
+    {
+      "priority": "important",
+      "icon": "💡",
+      "title": "título",
+      "description": "descripción accionable específica"
     },
     {
       "priority": "nice",
       "icon": "✨",
-      "title": "<título>",
-      "description": "<descripción accionable>"
+      "title": "título",
+      "description": "descripción accionable específica"
     },
     {
       "priority": "nice",
       "icon": "🌟",
-      "title": "<título>",
-      "description": "<descripción accionable>"
+      "title": "título",
+      "description": "descripción accionable específica"
     }
   ],
   "keywords": {
-    "present": ["<keyword ATS que ya está en el CV>"],
-    "missing": ["<keyword ATS importante que NO está en el CV>"],
-    "suggested": ["<keyword recomendada para agregar según el perfil>"]
+    "present": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+    "missing": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+    "suggested": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"]
+  },
+  "atsCompatibility": {
+    "score": 0,
+    "issues": ["problema ATS específico 1", "problema ATS específico 2"],
+    "passed": ["aspecto positivo ATS 1", "aspecto positivo ATS 2"]
+  },
+  "salaryInsight": {
+    "estimatedRange": "rango salarial estimado en MXN según el perfil detectado",
+    "marketPosition": "Junior|Mid|Senior|Lead",
+    "basis": "en qué te basas para esta estimación"
   }
 }
 
-Reglas importantes:
-- Sé 100% específico al CV analizado, no genérico
-- El score debe ser HONESTO, no inflado
-- Suggestions "critical" = bloquean el paso por ATS
-- Suggestions "important" = mejoran significativamente el score
-- Suggestions "nice" = detalles de pulido
-- Keywords deben ser relevantes al perfil detectado en el CV
-- Mínimo 3 items por categoría
-- Mínimo 5 keywords en cada sección de keywords
-- Responde TODO en español`;
+CRITERIOS DE EVALUACIÓN:
+- score 0-40: CV con problemas graves, pasará ATS difícilmente
+- score 41-60: CV promedio, mejoras necesarias
+- score 61-75: Buen CV con áreas de mejora
+- score 76-90: CV sólido y competitivo
+- score 91-100: CV excepcional (menos del 5% llega aquí)
+
+Para "Formato ATS" evalúa: ausencia de tablas, columnas múltiples, headers/footers, imágenes, fuentes raras, uso de secciones claramente etiquetadas, extensión apropiada.
+
+Para "Logros y Métricas" evalúa si los bullets usan verbos de acción + números/impacto cuantificable.
+
+Para salaryInsight usa el mercado mexicano actual (2024-2025).`;
 }
