@@ -809,12 +809,32 @@ function escHtml(s) {
 }
 
 document.addEventListener('click', (e) => {
-  // Verificamos si se hizo clic en el botón o en cualquiera de sus hijos (como el emoji)
   const btn = e.target.closest('#go-to-ats');
+  
   if (btn) {
-    const target = document.getElementById('ats-results-content');
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    // 1. Aseguramos que el panel sea visible primero
+    const panel = document.getElementById('ats-results-content');
+    if (panel) panel.classList.remove('hidden');
+
+    // 2. Esperamos un breve momento a que el layout de las vacantes se asiente
+    setTimeout(() => {
+      const target = document.getElementById('ats-panel-wrapper');
+      
+      if (target) {
+        // Calculamos la posición con un pequeño margen superior (offset)
+        const yOffset = -20; 
+        const y = target.getBoundingClientRect().top + window.pageYOffset + yOffset;
+
+        window.scrollTo({
+          top: y,
+          behavior: 'smooth'
+        });
+
+        // Feedback visual: un pequeño pulso para confirmar que llegó
+        target.style.transition = 'transform 0.3s ease';
+        target.style.transform = 'scale(1.02)';
+        setTimeout(() => target.style.transform = 'scale(1)', 300);
+      }
+    }, 300); // 300ms es el "sweet spot" para que el DOM se estabilice
   }
 });

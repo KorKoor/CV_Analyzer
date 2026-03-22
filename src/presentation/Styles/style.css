@@ -126,3 +126,7 @@ select {
 .animate-up {
     animation: popIn 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
 }
+  #go-to-ats:active {
+    transform: scale(0.95);
+    opacity: 0.9;
+  }
