@@ -151,6 +151,77 @@ async function callGemini(apiKey, model, cvText, fileName) {
   }
 }
 
-function buildPrompt(cvText, fileName) {
-  return `CV a analizar:\n${cvText}\n\nResponde SOLO este JSON, sin texto extra, reemplazando valores con análisis real del CV (español, máx 8 palabras por campo de texto):\n{"score":0,"scoreLabel":"","scoreSummary":"","quickWins":["","",""],"categories":[{"name":"Experiencia","icon":"💼","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Habilidades","icon":"🔑","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Educacion","icon":"🎓","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]},{"name":"Formato ATS","icon":"🤖","score":0,"items":[{"status":"pass","text":""},{"status":"warn","text":""}]}],"suggestions":[{"priority":"critical","icon":"🚨","title":"","description":""},{"priority":"critical","icon":"📝","title":"","description":""},{"priority":"important","icon":"⚡","title":"","description":""},{"priority":"nice","icon":"✨","title":"","description":""}],"keywords":{"present":["","","",""],"missing":["","","",""],"suggested":["","","",""]},"salaryInsight":{"estimatedRange":"","marketPosition":"","basis":""}}`;
+function buildPrompt(cvText) {
+  return `Analiza este CV y responde en formato de pares CLAVE:VALOR, uno por línea, sin explicaciones adicionales. Máximo 10 palabras por valor. En español.
+
+CV:
+${cvText}
+
+Responde EXACTAMENTE en este formato (una línea por campo):
+SCORE:número del 0 al 100
+LABEL:Necesita mejora|Regular|Bueno|Sólido|Excelente
+SUMMARY:resumen en máximo 15 palabras
+WIN1:fortaleza corta
+WIN2:fortaleza corta
+WIN3:fortaleza corta
+EXP_PASS:observación positiva experiencia
+EXP_WARN:área de mejora experiencia
+SKILL_PASS:observación positiva habilidades
+SKILL_WARN:área de mejora habilidades
+EDU_PASS:observación positiva educación
+EDU_WARN:área de mejora educación
+ATS_PASS:observación positiva formato
+ATS_WARN:problema de formato ATS
+SUG1_TITLE:título crítico corto
+SUG1_DESC:descripción crítica corta
+SUG2_TITLE:título crítico corto
+SUG2_DESC:descripción crítica corta
+SUG3_TITLE:título importante corto
+SUG3_DESC:descripción importante corta
+SUG4_TITLE:título mejora corto
+SUG4_DESC:descripción mejora corta
+KW_PRESENT:kw1,kw2,kw3,kw4
+KW_MISSING:kw1,kw2,kw3,kw4
+KW_SUGGEST:kw1,kw2,kw3,kw4
+SALARY:$XX,000-$XX,000 MXN mensual
+LEVEL:Junior|Mid|Senior|Lead
+SALARY_BASIS:justificación corta`;
+}
+
+function parseTextResponse(text) {
+  const lines = text.split('\n').filter(l => l.includes(':'));
+  const get = (key) => {
+    const line = lines.find(l => l.startsWith(key + ':'));
+    return line ? line.substring(key.length + 1).trim() : '';
+  };
+
+  return {
+    score:      parseInt(get('SCORE')) || 50,
+    scoreLabel: get('LABEL') || 'Análisis completado',
+    scoreSummary: get('SUMMARY') || '',
+    quickWins:  [get('WIN1'), get('WIN2'), get('WIN3')].filter(Boolean),
+    categories: [
+      { name: 'Experiencia',  icon: '💼', score: 0, items: [{ status: 'pass', text: get('EXP_PASS') }, { status: 'warn', text: get('EXP_WARN') }] },
+      { name: 'Habilidades',  icon: '🔑', score: 0, items: [{ status: 'pass', text: get('SKILL_PASS') }, { status: 'warn', text: get('SKILL_WARN') }] },
+      { name: 'Educación',    icon: '🎓', score: 0, items: [{ status: 'pass', text: get('EDU_PASS') }, { status: 'warn', text: get('EDU_WARN') }] },
+      { name: 'Formato ATS',  icon: '🤖', score: 0, items: [{ status: 'pass', text: get('ATS_PASS') }, { status: 'warn', text: get('ATS_WARN') }] },
+    ],
+    suggestions: [
+      { priority: 'critical',  icon: '🚨', title: get('SUG1_TITLE'), description: get('SUG1_DESC') },
+      { priority: 'critical',  icon: '📝', title: get('SUG2_TITLE'), description: get('SUG2_DESC') },
+      { priority: 'important', icon: '⚡', title: get('SUG3_TITLE'), description: get('SUG3_DESC') },
+      { priority: 'nice',      icon: '✨', title: get('SUG4_TITLE'), description: get('SUG4_DESC') },
+    ].filter(s => s.title),
+    keywords: {
+      present:   get('KW_PRESENT').split(',').map(k => k.trim()).filter(Boolean),
+      missing:   get('KW_MISSING').split(',').map(k => k.trim()).filter(Boolean),
+      suggested: get('KW_SUGGEST').split(',').map(k => k.trim()).filter(Boolean),
+    },
+    salaryInsight: {
+      estimatedRange:  get('SALARY'),
+      marketPosition:  get('LEVEL'),
+      basis:           get('SALARY_BASIS'),
+    },
+    atsCompatibility: { score: 0, issues: [], passed: [] },
+  };
 }
