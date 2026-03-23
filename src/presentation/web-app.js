@@ -11,7 +11,8 @@ const useCase = new AnalyzeResume(repo);
 // ═══════════════════════════════════════════════════════════
 const dropZone           = document.getElementById('drop-zone');
 const fileInput          = document.getElementById('file-input');
-const locationSelect     = document.getElementById('location-select');
+const countrySelect      = document.getElementById('country-select'); // NUEVO
+const stateSelect        = document.getElementById('state-select');   // NUEVO
 const resultsPanel       = document.getElementById('results-panel');
 const emptyState         = document.getElementById('empty-state');
 const matchesGrid        = document.getElementById('matches-grid');
@@ -31,7 +32,7 @@ let activeFilters = { modality: 'all', search: '', seniority: 'all', skill: 'all
 // ═══════════════════════════════════════════════════════════
 const MODALITY_CONFIG = {
   "Remoto":     { color: "text-emerald-600 bg-emerald-50 border-emerald-200", icon: "🌐" },
-  "Híbrido":    { color: "text-blue-600 bg-blue-50 border-blue-200",           icon: "🏢" },
+  "Híbrido":    { color: "text-blue-600 bg-blue-50 border-blue-200",          icon: "🏢" },
   "Presencial": { color: "text-orange-600 bg-orange-50 border-orange-200",     icon: "📍" },
 };
 
@@ -293,7 +294,11 @@ document.getElementById('pdf-close-btn').addEventListener('click', () => pdfPrev
 // ═══════════════════════════════════════════════════════════
 // UPLOAD EVENTS
 // ═══════════════════════════════════════════════════════════
-locationSelect.onchange = () => { if (lastFile) processFile(lastFile); };
+
+// NUEVO: Escuchar ambos selectores (País y Estado)
+countrySelect.addEventListener('change', () => { if (lastFile) processFile(lastFile); });
+stateSelect.addEventListener('change', () => { if (lastFile) processFile(lastFile); });
+
 dropZone.setAttribute('tabindex','0'); dropZone.setAttribute('role','button');
 dropZone.setAttribute('aria-label','Subir CV en PDF. Haz clic o arrastra.');
 dropZone.onclick = () => fileInput.click();
@@ -338,12 +343,15 @@ async function handleFile(file) {
 // CORE
 // ═══════════════════════════════════════════════════════════
 async function processFile(file) {
-  const location = locationSelect.value;
+  // NUEVO: Definir "location" priorizando el estado/ciudad. Si está vacío, usar el país.
+  const location = stateSelect.value || countrySelect.value;
+  
   if (cardObserver) { cardObserver.disconnect(); cardObserver = null; }
   emptyState.classList.add('hidden');
   resultsPanel.classList.remove('hidden');
   filterBar.classList.remove('visible');
   renderLoadingState();
+  
   try {
     const result = await useCase.execute(file, location);
     lastResult = result;
@@ -684,7 +692,7 @@ function renderPortalsSkeleton() {
 }
 
 function renderPortalTabs(portals, cardId, firstRealJob) {
-  const mainUrl    = firstRealJob?.url    || portals[0]?.jobs[0]?.url || '#';
+  const mainUrl    = firstRealJob?.url     || portals[0]?.jobs[0]?.url || '#';
   const mainSource = firstRealJob?.source || portals[0]?.portal       || 'Portal';
   const tabs = portals.map((p, i) => {
     const count = p.jobs.filter(j => !j.synthetic).length;
