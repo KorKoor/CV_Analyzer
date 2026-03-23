@@ -7,6 +7,37 @@ const slug = s  => String(s || "").toLowerCase().replace(/\s+/g, "-").replace(/[
 const num  = n  => Number(n).toLocaleString("es-MX");
 const sleep= ms => new Promise(r => setTimeout(r, ms));
 
+// ── DICCIONARIO DE DOMINIOS INTERNACIONALES ───────────────────
+function getDomains(location) {
+  const loc = String(location || "").toLowerCase();
+  let i = "mx.indeed.com", c = "mx.computrabajo.com"; // Default a MX
+  
+  if (loc.includes("argentina")) { i = "ar.indeed.com"; c = "ar.computrabajo.com"; }
+  else if (loc.includes("colombia")) { i = "co.indeed.com"; c = "co.computrabajo.com"; }
+  else if (loc.includes("chile")) { i = "cl.indeed.com"; c = "cl.computrabajo.com"; }
+  else if (loc.includes("perú") || loc.includes("peru")) { i = "pe.indeed.com"; c = "pe.computrabajo.com"; }
+  else if (loc.includes("brasil") || loc.includes("brazil")) { i = "br.indeed.com"; c = "br.computrabajo.com"; }
+  else if (loc.includes("uruguay")) { i = "uy.indeed.com"; c = "uy.computrabajo.com"; }
+  else if (loc.includes("ecuador")) { i = "ec.indeed.com"; c = "ec.computrabajo.com"; }
+  else if (loc.includes("bolivia")) { i = "bo.indeed.com"; c = "bo.computrabajo.com"; }
+  else if (loc.includes("paraguay")) { i = "py.indeed.com"; c = "py.computrabajo.com"; }
+  else if (loc.includes("venezuela")) { i = "ve.indeed.com"; c = "ve.computrabajo.com"; }
+  else if (loc.includes("costa rica")) { i = "cr.indeed.com"; c = "cr.computrabajo.com"; }
+  else if (loc.includes("panamá") || loc.includes("panama")) { i = "pa.indeed.com"; c = "pa.computrabajo.com"; }
+  else if (loc.includes("guatemala")) { i = "gt.indeed.com"; c = "gt.computrabajo.com"; }
+  else if (loc.includes("el salvador")) { i = "sv.indeed.com"; c = "sv.computrabajo.com"; }
+  else if (loc.includes("honduras")) { i = "hn.indeed.com"; c = "hn.computrabajo.com"; }
+  else if (loc.includes("nicaragua")) { i = "ni.indeed.com"; c = "ni.computrabajo.com"; }
+  else if (loc.includes("dominicana")) { i = "do.indeed.com"; c = "do.computrabajo.com"; }
+  else if (loc.includes("puerto rico")) { i = "pr.indeed.com"; c = "pr.computrabajo.com"; }
+  else if (loc.includes("estados unidos") || loc.includes("usa") || loc.includes("remote usa")) { i = "www.indeed.com"; c = "www.computrabajo.com"; }
+  else if (loc.includes("canadá") || loc.includes("canada")) { i = "ca.indeed.com"; c = "www.computrabajo.com"; }
+
+  return { indeed: i, computrabajo: c, isMexico: i === "mx.indeed.com" };
+}
+
+// ─────────────────────────────────────────────────────────────
+
 function cleanText(str) {
   return str?.replace(/<[^>]+>/g, "").replace(/&[a-z#0-9]+;/gi, c => {
     const map = { "&amp;":"&","&lt;":"<","&gt;":">","&quot;":'"',"&#39;":"'","&nbsp;":" ","&#xF3;":"ó","&#xE9;":"é","&#xED;":"í","&#xE1;":"á","&#xFA;":"ú","&#xF1;":"ñ" };
@@ -56,7 +87,6 @@ function relativeDate(str) {
   } catch { return null; }
 }
 
-// Limpia y acorta descripción a ~180 caracteres
 function cleanDescription(raw, maxLen = 180) {
   if (!raw) return null;
   const text = cleanText(raw);
@@ -69,13 +99,16 @@ function syntheticJob(title, location, source, url) {
            postedAt: null, modality: null, salary: null,
            description: null, source, synthetic: true };
 }
+
 function buildSearchUrl(name, title, location) {
   const q = enc(title), l = enc(location), s = slug(title);
+  const dom = getDomains(location);
+
   switch (name) {
     case "LinkedIn":     return `https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}&f_TPR=r604800&sortBy=DD`;
-    case "Indeed":       return `https://mx.indeed.com/jobs?q=${q}&l=${l}&fromage=7&sort=date`;
-    case "OCC Mundial":  return `https://www.occ.com.mx/empleos/de-${s}/`;
-    case "Computrabajo": return `https://www.computrabajo.com.mx/empleos-de-${s}`;
+    case "Indeed":       return `https://${dom.indeed}/jobs?q=${q}&l=${l}&fromage=7&sort=date`;
+    case "OCC Mundial":  return dom.isMexico ? `https://www.occ.com.mx/empleos/de-${s}/` : `https://www.occ.com.mx/empleos/de-${s}/?q=${q}&loc=${l}`;
+    case "Computrabajo": return `https://${dom.computrabajo}/empleos-de-${s}`;
     case "GetOnBrd":     return `https://www.getonbrd.com/jobs/programming?search=${q}`;
     default:             return `https://www.google.com/search?q=${q}+${l}+empleos&ibp=htl;jobs`;
   }
@@ -129,7 +162,6 @@ function parseLinkedin(html, title, location) {
     const link    = rawLink?.match(/(https:\/\/www\.linkedin\.com\/jobs\/view\/[^?&"]+)/)?.[1];
     const date    = block.match(/<time[^>]*datetime="([^"]+)"/i)?.[1];
 
-    // LinkedIn no expone descripción en el feed público — usamos company + location como contexto
     const description = [company, loc].filter(Boolean).join(" · ") || null;
 
     if (jobTitle) {
@@ -163,7 +195,7 @@ function parseIndeedRSS(xml, title, location) {
     const company     = cleanText(stripCDATA(extractRawTag(block, "source")));
     const rawDesc     = stripCDATA(extractRawTag(block, "description")) || "";
     const date        = stripCDATA(extractRawTag(block, "pubDate"));
-    const description = cleanDescription(rawDesc); // ← descripción real del RSS
+    const description = cleanDescription(rawDesc);
 
     if (jobTitle && link) {
       jobs.push({
@@ -197,7 +229,6 @@ function parseOCC(html, title, location) {
       ? (rawLink.startsWith("http") ? rawLink : `https://www.occ.com.mx${rawLink}`)
       : buildSearchUrl("OCC Mundial", title, location);
 
-    // OCC a veces incluye snippet de descripción en un <p> o <span class="description">
     const rawDesc    = extractTag(block, "p", "description") ||
                        extractTag(block, "span", "description") ||
                        extractTag(block, "p", "summary") || null;
@@ -224,17 +255,18 @@ function parseOCC(html, title, location) {
 function parseComputrabajo(html, title, location) {
   if (!html) return [syntheticJob(title, location, "Computrabajo", buildSearchUrl("Computrabajo", title, location))];
   const jobs = [];
+  const dom = getDomains(location);
 
   for (const [, block] of html.matchAll(/<article[^>]*>([\s\S]*?)<\/article>/gi)) {
     const jobTitle = extractTag(block, "h2", "") || extractTag(block, "h3", "");
     const company  = extractTag(block, "span", "company-name") || extractTag(block, "a", "company");
     const loc      = extractTag(block, "span", "city") || extractTag(block, "p", "location");
     const rawLink  = extractAttr(block, "a", "href");
+    // Corrección crítica: Usar el dominio dinámico al extraer el enlace relativo
     const fullUrl  = rawLink
-      ? (rawLink.startsWith("http") ? rawLink : `https://www.computrabajo.com.mx${rawLink}`)
+      ? (rawLink.startsWith("http") ? rawLink : `https://${dom.computrabajo}${rawLink}`)
       : buildSearchUrl("Computrabajo", title, location);
 
-    // Computrabajo incluye requisitos/descripción corta en el listado
     const rawDesc    = extractTag(block, "p", "fs16") ||
                        extractTag(block, "p", "description") ||
                        extractTag(block, "div", "description") ||
@@ -277,7 +309,6 @@ function parseGetOnBrd(json, title, location) {
     modality: job.remote_modality === "full_remote" ? "Remoto"
             : job.remote_modality === "hybrid"      ? "Híbrido" : "Presencial",
     salary:   job.min_salary ? `$${num(job.min_salary)} – $${num(job.max_salary)} MXN` : null,
-    // GetOnBrd JSON trae description directamente
     description: cleanDescription(job.description || job.short_description || job.functions),
     source:   "GetOnBrd",
     synthetic: false,
@@ -285,12 +316,13 @@ function parseGetOnBrd(json, title, location) {
 }
 
 // ── PORTALES ──────────────────────────────────────────────────
+// Modificados para inyectar dinámicamente el dominio según la variable "l" (location)
 const PORTALS = {
   linkedin:     { name: "LinkedIn",     buildUrl: (t, l) => `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${enc(t)}&location=${enc(l)}&start=0&count=3&f_TPR=r604800`, parse: parseLinkedin     },
-  indeed:       { name: "Indeed",       buildUrl: (t, l) => `https://mx.indeed.com/rss?q=${enc(t)}&l=${enc(l)}&sort=date&limit=3`,                                                                        parse: parseIndeedRSS    },
-  occ:          { name: "OCC Mundial",  buildUrl: (t)    => `https://www.occ.com.mx/empleos/de-${slug(t)}/?sort=date`,                                                                                    parse: parseOCC          },
-  computrabajo: { name: "Computrabajo", buildUrl: (t)    => `https://www.computrabajo.com.mx/empleos-de-${slug(t)}`,                                                                                      parse: parseComputrabajo },
-  getonbrd:     { name: "GetOnBrd",     buildUrl: (t)    => `https://www.getonbrd.com/jobs/programming.json?search=${enc(t)}&per_page=3`,                                                                 parse: parseGetOnBrd     },
+  indeed:       { name: "Indeed",       buildUrl: (t, l) => `https://${getDomains(l).indeed}/rss?q=${enc(t)}&l=${enc(l)}&sort=date&limit=3`,                                                  parse: parseIndeedRSS    },
+  occ:          { name: "OCC Mundial",  buildUrl: (t, l) => `https://www.occ.com.mx/empleos/de-${slug(t)}/?sort=date${getDomains(l).isMexico ? '' : '&loc='+enc(l)}`,                         parse: parseOCC          },
+  computrabajo: { name: "Computrabajo", buildUrl: (t, l) => `https://${getDomains(l).computrabajo}/empleos-de-${slug(t)}`,                                                                    parse: parseComputrabajo },
+  getonbrd:     { name: "GetOnBrd",     buildUrl: (t, l) => `https://www.getonbrd.com/jobs/programming.json?search=${enc(t)}&per_page=3`,                                                     parse: parseGetOnBrd     },
 };
 
 async function scrapePortal(portal, title, location, maxJobs) {
