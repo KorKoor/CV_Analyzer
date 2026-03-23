@@ -808,13 +808,60 @@ function showToast(message, type = '') {
 }
 
 function buildFallbackLinks(title, location) {
-  const q = encodeURIComponent(title); const l = encodeURIComponent(location);
+  const q = encodeURIComponent(title); 
+  const l = encodeURIComponent(location);
   const sl = title.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+
+  // 1. Valores por defecto (México)
+  let indeedDomain = "mx.indeed.com";
+  let ctDomain = "mx.computrabajo.com"; // El nuevo estándar de Computrabajo para México
+  let isMexico = true;
+
+  // 2. Diccionario de dominios para LATAM, USA y Canadá
+  const countryMap = {
+    "Argentina": { i: "ar.indeed.com", c: "ar.computrabajo.com" },
+    "Colombia": { i: "co.indeed.com", c: "co.computrabajo.com" },
+    "Chile": { i: "cl.indeed.com", c: "cl.computrabajo.com" },
+    "Perú": { i: "pe.indeed.com", c: "pe.computrabajo.com" },
+    "Brasil": { i: "br.indeed.com", c: "br.computrabajo.com" },
+    "Uruguay": { i: "uy.indeed.com", c: "uy.computrabajo.com" },
+    "Ecuador": { i: "ec.indeed.com", c: "ec.computrabajo.com" },
+    "Bolivia": { i: "bo.indeed.com", c: "bo.computrabajo.com" },
+    "Paraguay": { i: "py.indeed.com", c: "py.computrabajo.com" },
+    "Venezuela": { i: "ve.indeed.com", c: "ve.computrabajo.com" },
+    "Costa Rica": { i: "cr.indeed.com", c: "cr.computrabajo.com" },
+    "Panamá": { i: "pa.indeed.com", c: "pa.computrabajo.com" },
+    "Guatemala": { i: "gt.indeed.com", c: "gt.computrabajo.com" },
+    "El Salvador": { i: "sv.indeed.com", c: "sv.computrabajo.com" },
+    "Honduras": { i: "hn.indeed.com", c: "hn.computrabajo.com" },
+    "Nicaragua": { i: "ni.indeed.com", c: "ni.computrabajo.com" },
+    "República Dominicana": { i: "do.indeed.com", c: "do.computrabajo.com" },
+    "Puerto Rico": { i: "pr.indeed.com", c: "pr.computrabajo.com" },
+    "Estados Unidos": { i: "www.indeed.com", c: "www.computrabajo.com" },
+    "Canadá": { i: "ca.indeed.com", c: "www.computrabajo.com" }
+  };
+
+  // 3. Detectar el país en el string de ubicación y asignar el dominio correcto
+  for (const [country, domains] of Object.entries(countryMap)) {
+    if (location.includes(country)) {
+      indeedDomain = domains.i;
+      ctDomain = domains.c;
+      isMexico = false;
+      break;
+    }
+  }
+
+  // OCC es un portal casi exclusivamente mexicano. Si no es México, lo mandamos 
+  // con parámetros generales, pero las opciones principales serán las otras.
+  const occLink = isMexico 
+    ? `https://www.occ.com.mx/empleos/de-${sl}/` 
+    : `https://www.occ.com.mx/empleos/de-${sl}/?q=${q}&loc=${l}`;
+
   return {
     linkedin:     `https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}&f_TPR=r604800&sortBy=DD`,
-    occ:          `https://www.occ.com.mx/empleos/de-${sl}/`,
-    indeed:       `https://mx.indeed.com/jobs?q=${q}&l=${l}&fromage=7&sort=date`,
-    computrabajo: `https://www.computrabajo.com.mx/empleos-de-${sl}`,
+    occ:          occLink,
+    indeed:       `https://${indeedDomain}/jobs?q=${q}&l=${l}&fromage=7&sort=date`,
+    computrabajo: `https://${ctDomain}/empleos-de-${sl}`,
     googleJobs:   `https://www.google.com/search?q=${q}+${l}+empleos&ibp=htl;jobs`,
   };
 }
