@@ -812,6 +812,9 @@ function buildFallbackLinks(title, location) {
   const l = encodeURIComponent(location);
   const sl = title.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
 
+  // NUEVO: Extrae la ciudad base y la formatea (ej: "Aguascalientes, México" -> "aguascalientes")
+  const locSlug = location.split(',')[0].toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+
   // 1. Valores por defecto (México)
   let indeedDomain = "mx.indeed.com";
   let ctDomain = "mx.computrabajo.com"; // El nuevo estándar de Computrabajo para México
@@ -854,14 +857,14 @@ function buildFallbackLinks(title, location) {
   // OCC es un portal casi exclusivamente mexicano. Si no es México, lo mandamos 
   // con parámetros generales, pero las opciones principales serán las otras.
   const occLink = isMexico 
-    ? `https://www.occ.com.mx/empleos/de-${sl}/` 
+    ? `https://www.occ.com.mx/empleos/de-${sl}/?loc=${l}` // NUEVO: Agregado ?loc=${l} para forzar ciudad en MX
     : `https://www.occ.com.mx/empleos/de-${sl}/?q=${q}&loc=${l}`;
 
   return {
     linkedin:     `https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}&f_TPR=r604800&sortBy=DD`,
     occ:          occLink,
     indeed:       `https://${indeedDomain}/jobs?q=${q}&l=${l}&fromage=7&sort=date`,
-    computrabajo: `https://${ctDomain}/empleos-de-${sl}`,
+    computrabajo: `https://${ctDomain}/trabajo-de-${sl}-en-${locSlug}`, // NUEVO: Formato SEO de Computrabajo usando la ciudad
     googleJobs:   `https://www.google.com/search?q=${q}+${l}+empleos&ibp=htl;jobs`,
   };
 }
