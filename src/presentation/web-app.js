@@ -343,8 +343,15 @@ async function handleFile(file) {
 // CORE
 // ═══════════════════════════════════════════════════════════
 async function processFile(file) {
-  // NUEVO: Definir "location" priorizando el estado/ciudad. Si está vacío, usar el país.
-  const location = stateSelect.value || countrySelect.value;
+  // CORRECCIÓN: Concatenar Estado y País para evitar ambigüedades geográficas (ej: Santa Fe, Argentina vs Santa Fe, CDMX).
+  let location = countrySelect.value;
+  if (stateSelect.value) {
+    if (stateSelect.value.toLowerCase().includes('remoto') || stateSelect.value.toLowerCase().includes('remote')) {
+      location = stateSelect.value; // Ej: "Remoto Argentina"
+    } else {
+      location = `${stateSelect.value}, ${countrySelect.value}`; // Ej: "Santa Fe, Argentina"
+    }
+  }
   
   if (cardObserver) { cardObserver.disconnect(); cardObserver = null; }
   emptyState.classList.add('hidden');
